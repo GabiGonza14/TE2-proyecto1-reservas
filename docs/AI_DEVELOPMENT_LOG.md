@@ -11,7 +11,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | #2 HU1 Pago con datos guardados | A | B | C |
 | #3 HU2 Calendario disponible/ocupado | B | C | A |
 | #4 HU3 Previsión de demanda | C | A | B |
-| #5 HU4 Cancelar o modificar reserva | A | C | B |
+| #5 HU4 Cancelar o modificar reserva | C | B | A |
 | #6 HU5 Correo de confirmación | B | A | C |
 
 ## Registro
@@ -42,3 +42,4 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-18 | Repo base: Gestor-de-reservas | Python, fácil de levantar, ya trae FullCalendar |
 | 2026-10-18 | Historias propias: cancelar/modificar reserva y correo de confirmación | Elegidas entre 4 propuestas |
 | 2026-10-18 | La preparación (#1) la hace A como Developer | No estaba en la rotación; A también es Dev de HU1 |
+| 2026-10-18 | HU4 pasa a C como Developer (B Reviewer, A QA) | Equilibrar: cada integrante es Dev de 2 historias |
