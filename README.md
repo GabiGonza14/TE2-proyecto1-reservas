@@ -71,12 +71,12 @@ python manage.py test
 
 ### Variables de entorno
 
-En desarrollo no hace falta definir nada: `manage.py` activa `DJANGO_DEBUG=True` y usa una clave local.
+En desarrollo no hace falta definir nada: `manage.py` activa `DJANGO_DEBUG=True` y genera una clave aleatoria local en `.dev_secret_key` (ignorado por git).
 En producción (servidor WSGI/ASGI) `DEBUG` queda apagado y **`DJANGO_SECRET_KEY` es obligatoria**: si falta, la aplicación no arranca.
 
 | Variable | Por defecto | Uso |
 |---|---|---|
-| `DJANGO_SECRET_KEY` | ninguno (clave local solo con `DEBUG=True`) | Obligatoria en producción |
+| `DJANGO_SECRET_KEY` | ninguno (clave aleatoria local solo con `DEBUG=True`) | Obligatoria en producción |
 | `DJANGO_DEBUG` | `False` (`True` al usar `manage.py`) | Activa el modo depuración |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts separados por comas |
 | `DJANGO_TIME_ZONE` | `America/Panama` | Zona horaria del sistema (horario de reservas 09:00–21:00) |

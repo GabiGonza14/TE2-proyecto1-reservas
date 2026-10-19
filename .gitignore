@@ -13,6 +13,7 @@ staticfiles/
 
 # Entorno y editores
 .env
+.dev_secret_key
 .vscode/
 .idea/
 .DS_Store

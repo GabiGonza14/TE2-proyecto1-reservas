@@ -32,7 +32,14 @@ if not SECRET_KEY:
         raise ImproperlyConfigured(
             "Define la variable de entorno DJANGO_SECRET_KEY (obligatoria con DEBUG=False)."
         )
-    SECRET_KEY = "django-insecure-solo-para-desarrollo-local"
+    # Clave aleatoria solo para desarrollo, guardada en un archivo local ignorado por git
+    # (persistente para no cerrar la sesión en cada recarga de runserver).
+    from django.core.management.utils import get_random_secret_key
+
+    archivo_clave_dev = BASE_DIR / ".dev_secret_key"
+    if not archivo_clave_dev.exists():
+        archivo_clave_dev.write_text("django-insecure-" + get_random_secret_key())
+    SECRET_KEY = archivo_clave_dev.read_text().strip()
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 

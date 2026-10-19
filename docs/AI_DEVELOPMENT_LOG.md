@@ -35,6 +35,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 |---|---|---|---|---|---|
 | 2026-10-18 | #1 | Claude | El análisis inicial del repo y las 12 pruebas no detectaron que `crear_reservas_demo` usaba fechas sin zona horaria y que el sistema estaba en UTC: las reservas demo quedaban fuera del horario visible (04:00–08:00 en Panamá) | Revisión humana de Derlin al probar en local (comentario en PR #7) | Zona horaria del proyecto y fechas con zona horaria; pruebas de regresión |
 | 2026-10-18 | #1 | Claude | Al mover `SECRET_KEY` y `DEBUG` a variables de entorno dejó valores inseguros por defecto (clave fija y `DEBUG=True`): un despliegue sin variables quedaba inseguro | Revisión de Derlin en PR #7 | Configuración segura por defecto y pruebas |
+| 2026-10-19 | #1 | Claude | Al corregir la configuración dejó una clave de desarrollo escrita en el código (`SECRET_KEY = "django-insecure-..."`) | SonarCloud marcó el Quality Gate en rojo (Security Rating E) | Clave aleatoria generada en `.dev_secret_key`, ignorado por git |
 
 ## Cambios de la IA rechazados
 
