@@ -7,6 +7,9 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gestor_reservas.settings")
+    # Desarrollo local: DEBUG encendido salvo que se indique lo contrario.
+    # En producción se usa wsgi.py/asgi.py, donde DEBUG queda apagado por defecto.
+    os.environ.setdefault("DJANGO_DEBUG", "True")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

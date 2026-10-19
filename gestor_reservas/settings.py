@@ -13,21 +13,26 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-+0w4ouo&onwi5p0dzlnc4m-a%(50_n@-4ae5zwa)jub0ugs5ug",
-)
+# Seguro por defecto: DEBUG apagado y SECRET_KEY obligatoria.
+# manage.py activa DJANGO_DEBUG=True para desarrollo local (runserver, test, migrate);
+# wsgi.py/asgi.py no lo hacen, así que un despliegue sin variables falla en vez de quedar inseguro.
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "Define la variable de entorno DJANGO_SECRET_KEY (obligatoria con DEBUG=False)."
+        )
+    SECRET_KEY = "django-insecure-solo-para-desarrollo-local"
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 

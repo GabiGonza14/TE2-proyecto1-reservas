@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 import warnings
 from io import StringIO
 from datetime import datetime, timedelta, timezone
@@ -152,3 +155,35 @@ class ReservasDemoTests(TestCase):
 
     def test_zona_horaria_por_defecto_es_panama(self):
         self.assertEqual(settings.TIME_ZONE, "America/Panama")
+
+
+class ConfiguracionSeguraTests(TestCase):
+    """Los settings se importan en un proceso aparte para probar cada combinación de variables."""
+
+    CODIGO = (
+        "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gestor_reservas.settings');"
+        "from django.conf import settings; print(settings.DEBUG, settings.SECRET_KEY)"
+    )
+
+    def _importar_settings(self, **variables):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("DJANGO_")}
+        env.update(variables)
+        return subprocess.run(
+            [sys.executable, "-c", self.CODIGO],
+            cwd=settings.BASE_DIR, env=env, capture_output=True, text=True,
+        )
+
+    def test_sin_variables_falla_en_vez_de_usar_clave_insegura(self):
+        resultado = self._importar_settings()
+        self.assertNotEqual(resultado.returncode, 0)
+        self.assertIn("DJANGO_SECRET_KEY", resultado.stderr)
+
+    def test_con_secret_key_debug_queda_apagado_por_defecto(self):
+        resultado = self._importar_settings(DJANGO_SECRET_KEY="clave-de-prueba")
+        self.assertEqual(resultado.returncode, 0, resultado.stderr)
+        self.assertEqual(resultado.stdout.strip(), "False clave-de-prueba")
+
+    def test_en_desarrollo_usa_clave_local(self):
+        resultado = self._importar_settings(DJANGO_DEBUG="True")
+        self.assertEqual(resultado.returncode, 0, resultado.stderr)
+        self.assertTrue(resultado.stdout.startswith("True django-insecure-"))
