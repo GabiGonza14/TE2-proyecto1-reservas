@@ -1,10 +1,15 @@
 import json
+import warnings
+from io import StringIO
 from datetime import datetime, timedelta, timezone
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone as dj_timezone
 
 from .models import Booking, Resource
 
@@ -128,3 +133,22 @@ class VistasTests(TestCase):
         )
         resp = self.client.get(reverse("api_reservas", args=[self.resource.id]))
         self.assertEqual(len(resp.json()), 1)
+
+
+class ReservasDemoTests(TestCase):
+    def test_reservas_demo_usan_fechas_con_zona_horaria(self):
+        """Antes el comando usaba datetime.now() sin zona horaria y Django avisaba con RuntimeWarning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            call_command("crear_reservas_demo", stdout=StringIO())
+        self.assertEqual(Booking.objects.count(), 15)
+
+    def test_reservas_demo_en_horario_local_del_calendario(self):
+        """Las reservas demo deben caer entre 09:00 y 21:00 en la hora local del proyecto."""
+        call_command("crear_reservas_demo", stdout=StringIO())
+        for reserva in Booking.objects.all():
+            self.assertGreaterEqual(dj_timezone.localtime(reserva.start_time).hour, 9)
+            self.assertLessEqual(dj_timezone.localtime(reserva.end_time).hour, 21)
+
+    def test_zona_horaria_por_defecto_es_panama(self):
+        self.assertEqual(settings.TIME_ZONE, "America/Panama")

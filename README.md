@@ -76,6 +76,7 @@ python manage.py test
 | `DJANGO_SECRET_KEY` | clave insegura de desarrollo | Obligatoria en producción |
 | `DJANGO_DEBUG` | `True` | Poner `False` en producción |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts separados por comas |
+| `DJANGO_TIME_ZONE` | `America/Panama` | Zona horaria del sistema (horario de reservas 09:00–21:00) |
 
 Uso de la aplicación
 Panel de administración:
