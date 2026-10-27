@@ -7,7 +7,10 @@ from django.utils.dateformat import format as date_format
 from django.utils.dateparse import parse_datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from .models import Resource, Booking, Availability
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import Resource, Booking, Availability, PaymentMethod
+from .pagos import PagoInvalido, metodo_vigente, validar_tarjeta
 
 
 # Horario por defecto (si no hay Availability definida)
@@ -107,8 +110,16 @@ def calendario_full(request, resource_id):
         for bloqueo in bloqueos
     ]
 
+    metodos = []
+    if request.user.is_authenticated:
+        metodos = [
+            {'id': m.id, 'label': str(m), 'vigente': metodo_vigente(m)}
+            for m in request.user.payment_methods.all()
+        ]
+
     return render(request, 'reservas/calendario_full.html', {
         'resource': resource,
+        'metodos_pago': metodos,
         'reservas_json': json.dumps(reservas_json),
         'bloqueos_json': json.dumps(bloqueos_json),
         'is_authenticated': request.user.is_authenticated,
@@ -119,6 +130,9 @@ def calendario_full(request, resource_id):
 def api_crear_reserva(request):
     """
     Endpoint para crear una nueva reserva, con soporte para repeticiones semanales.
+
+    Requiere un pago (simulado): un método guardado del usuario (`payment_method_id`)
+    o una tarjeta nueva (`card`), que se guarda si `card.save` es verdadero.
     """
     if request.method == 'POST':
         if not request.user.is_authenticated:
@@ -130,12 +144,31 @@ def api_crear_reserva(request):
             end_time = parse_datetime(data.get('end_time'))
             repeat_weeks = int(data.get('repeat_weeks', 0))
 
-            reservas_creadas = []
+            # 1. Validar el pago antes de tocar la base de datos
+            metodo_guardado = None
+            datos_tarjeta = None
+            if data.get('payment_method_id'):
+                metodo_guardado = PaymentMethod.objects.filter(
+                    id=data['payment_method_id'], user=request.user
+                ).first()
+                if metodo_guardado is None:
+                    return JsonResponse({'success': False, 'error': 'Método de pago no encontrado.'}, status=404)
+                if not metodo_vigente(metodo_guardado):
+                    return JsonResponse({'success': False, 'error': 'El método de pago guardado está vencido.'}, status=400)
+            elif data.get('card'):
+                try:
+                    datos_tarjeta = validar_tarjeta(data['card'])
+                except PagoInvalido as e:
+                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
+            else:
+                return JsonResponse({'success': False, 'error': 'Debes indicar un método de pago.'}, status=400)
 
-            for i in range(repeat_weeks + 1):
-                start = start_time + timedelta(weeks=i)
-                end = end_time + timedelta(weeks=i)
-
+            # 2. Comprobar todas las semanas antes de crear nada
+            franjas = [
+                (start_time + timedelta(weeks=i), end_time + timedelta(weeks=i))
+                for i in range(repeat_weeks + 1)
+            ]
+            for i, (start, end) in enumerate(franjas):
                 overlapping = Booking.objects.filter(
                     resource_id=resource_id,
                     start_time__lt=end,
@@ -147,21 +180,47 @@ def api_crear_reserva(request):
                         'error': f'Conflicto: hay una reserva en la semana {i + 1} ({start}).'
                     })
 
-                booking = Booking.objects.create(
-                    user=request.user,
-                    resource_id=resource_id,
-                    start_time=start,
-                    end_time=end
-                )
-                reservas_creadas.append({
-                    'start': start.isoformat(),
-                    'end': end.isoformat()
-                })
+            # 3. Crear todo junto: o se guardan todas las reservas (y la tarjeta) o ninguna
+            with transaction.atomic():
+                if datos_tarjeta and data['card'].get('save'):
+                    metodo_guardado = PaymentMethod.objects.create(user=request.user, **datos_tarjeta)
+                reservas_creadas = []
+                for start, end in franjas:
+                    Booking.objects.create(
+                        user=request.user,
+                        resource_id=resource_id,
+                        start_time=start,
+                        end_time=end,
+                        payment_method=metodo_guardado,
+                    )
+                    reservas_creadas.append({
+                        'start': start.isoformat(),
+                        'end': end.isoformat()
+                    })
 
-            return JsonResponse({'success': True, 'reservas': reservas_creadas})
+            return JsonResponse({
+                'success': True,
+                'reservas': reservas_creadas,
+                'payment_method': str(metodo_guardado) if metodo_guardado else None,
+            })
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+@login_required
+def metodos_pago(request):
+    """
+    Lista los métodos de pago guardados del usuario y permite eliminarlos.
+    """
+    if request.method == 'POST':
+        metodo = get_object_or_404(PaymentMethod, id=request.POST.get('metodo_id'), user=request.user)
+        metodo.delete()
+        messages.success(request, 'Método de pago eliminado.')
+        return redirect('metodos_pago')
+    return render(request, 'reservas/metodos_pago.html', {
+        'metodos': request.user.payment_methods.all(),
+    })
 
 
 def login_view(request):

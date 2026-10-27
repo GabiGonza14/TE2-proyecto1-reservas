@@ -29,6 +29,9 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | #1 | Debug | Claude | Corregir el problema de zona horaria reportado por Derlin | `TIME_ZONE` = America/Panama, fechas con zona horaria en `crear_reservas_demo`, 3 pruebas de regresión (fallan con el código anterior) | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-19 | #1 | Código | Claude | Atender la revisión de Derlin sobre `SECRET_KEY`/`DEBUG` | `DEBUG` apagado por defecto, `DJANGO_SECRET_KEY` obligatoria fuera de desarrollo, `manage.py` activa el modo desarrollo; 3 pruebas nuevas (2 fallan con la configuración anterior) | Pendiente de nueva revisión | Gabriel |
 | 2026-10-27 | #1 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #7 en un clon limpio | 18/18 pruebas OK; instalación, migraciones, reservas manuales, recurrencia y admin verificados | Aceptado: QA OK; observación no bloqueante registrada abajo | Isalleth |
+| 2026-10-27 | #2 | Diseño | Claude | Diseñar HU1 (pago con datos guardados) | Modelo `PaymentMethod` sin número completo ni CVV, pago simulado con validación Luhn/vencimiento/CVV, reserva en un clic con método guardado | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-27 | #2 | Código | Claude | Implementar HU1: API, modal de pago en el calendario y página "Mis métodos de pago" | Pago obligatorio al reservar; creación atómica (si una semana choca no se crea ninguna ni se guarda la tarjeta) | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-27 | #2 | Testing | Claude | Pruebas automatizadas de HU1 y prueba del flujo en navegador | 19 pruebas nuevas (37 en total); flujo probado con Playwright: tarjeta nueva → guardada → reserva en un clic | Pendiente de revisión (PR) | Gabriel |
 
 ## Respuestas incorrectas de la IA
 
@@ -54,4 +57,6 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | Zona horaria del sistema: America/Panama (configurable con `DJANGO_TIME_ZONE`) | Los usuarios y el equipo están en Panamá; el calendario muestra 09:00–21:00 local |
 | 2026-10-19 | Configuración segura por defecto: `DEBUG=False` y `SECRET_KEY` obligatoria; solo `manage.py` activa el modo desarrollo | Revisión de Derlin: evitar despliegues inseguros sin complicar el trabajo local |
 | 2026-10-19 | La validación de bloqueos (`Availability`) en el servidor se deja para HU2 (#3), no en este PR | Derlin es Dev de HU2 y es parte del calendario; queda como criterio de aceptación en #3 |
+| 2026-10-27 | HU1: pago simulado sin pasarela real; solo se guardan titular, marca, últimos 4 dígitos y vencimiento | No hay pasarela en el alcance del curso y guardar el número completo o el CVV sería inseguro |
+| 2026-10-27 | HU1 hace atómica la creación de reservas recurrentes (pendiente que estaba en HU2) | Al pagar no se puede guardar la tarjeta ni cobrar si una de las semanas falla |
 | 2026-10-18 | HU4 pasa a Isalleth como Developer (Derlin Reviewer, Gabriel QA) | Equilibrar: cada integrante es Dev de 2 historias |
