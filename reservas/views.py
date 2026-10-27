@@ -2,13 +2,12 @@ import json
 from datetime import datetime, timedelta, time
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.dateformat import format as date_format
 from django.utils.dateparse import parse_datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .models import Resource, Booking, Availability
-from .models import Resource
 
 
 # Horario por defecto (si no hay Availability definida)
@@ -78,6 +77,7 @@ def calendario_navegable(request, resource_id):
     })
 
 
+@ensure_csrf_cookie
 def calendario_full(request, resource_id):
     """
     Calendario interactivo con FullCalendar.
@@ -116,7 +116,6 @@ def calendario_full(request, resource_id):
 
 
 
-@csrf_exempt
 def api_crear_reserva(request):
     """
     Endpoint para crear una nueva reserva, con soporte para repeticiones semanales.

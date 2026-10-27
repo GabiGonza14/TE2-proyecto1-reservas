@@ -10,22 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-+0w4ouo&onwi5p0dzlnc4m-a%(50_n@-4ae5zwa)jub0ugs5ug"
+# Seguro por defecto: DEBUG apagado y SECRET_KEY obligatoria.
+# manage.py activa DJANGO_DEBUG=True para desarrollo local (runserver, test, migrate);
+# wsgi.py/asgi.py no lo hacen, así que un despliegue sin variables falla en vez de quedar inseguro.
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured(
+            "Define la variable de entorno DJANGO_SECRET_KEY (obligatoria con DEBUG=False)."
+        )
+    # Clave aleatoria solo para desarrollo, guardada en un archivo local ignorado por git
+    # (persistente para no cerrar la sesión en cada recarga de runserver).
+    from django.core.management.utils import get_random_secret_key
 
-ALLOWED_HOSTS = []
+    archivo_clave_dev = BASE_DIR / ".dev_secret_key"
+    if not archivo_clave_dev.exists():
+        archivo_clave_dev.write_text("django-insecure-" + get_random_secret_key())
+    SECRET_KEY = archivo_clave_dev.read_text().strip()
+
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
@@ -37,6 +53,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "reservas",
 ]
 
 MIDDLEWARE = [
@@ -102,9 +119,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "es"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "America/Panama")
 
 USE_I18N = True
 
@@ -120,16 +137,3 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
-    'reservas',
-]
-
