@@ -127,6 +127,42 @@ def calendario_full(request, resource_id):
 
 
 
+class _ErrorReserva(Exception):
+    """Error de validación de una reserva, con el código HTTP a devolver."""
+
+    def __init__(self, mensaje, status=400):
+        super().__init__(mensaje)
+        self.status = status
+
+
+def _resolver_pago(data, user):
+    """
+    Devuelve (metodo_guardado, datos_tarjeta) a partir del cuerpo de la petición.
+    Lanza _ErrorReserva si el pago falta o no es válido.
+    """
+    if data.get('payment_method_id'):
+        metodo = PaymentMethod.objects.filter(id=data['payment_method_id'], user=user).first()
+        if metodo is None:
+            raise _ErrorReserva('Método de pago no encontrado.', status=404)
+        if not metodo_vigente(metodo):
+            raise _ErrorReserva('El método de pago guardado está vencido.')
+        return metodo, None
+    if data.get('card'):
+        try:
+            return None, validar_tarjeta(data['card'])
+        except PagoInvalido as e:
+            raise _ErrorReserva(str(e)) from e
+    raise _ErrorReserva('Debes indicar un método de pago.')
+
+
+def _buscar_conflicto(resource_id, franjas):
+    """Devuelve el mensaje de conflicto de la primera franja ocupada, o None."""
+    for i, (start, end) in enumerate(franjas):
+        if Booking.objects.filter(resource_id=resource_id, start_time__lt=end, end_time__gt=start).exists():
+            return f'Conflicto: hay una reserva en la semana {i + 1} ({start}).'
+    return None
+
+
 def api_crear_reserva(request):
     """
     Endpoint para crear una nueva reserva, con soporte para repeticiones semanales.
@@ -134,78 +170,51 @@ def api_crear_reserva(request):
     Requiere un pago (simulado): un método guardado del usuario (`payment_method_id`)
     o una tarjeta nueva (`card`), que se guarda si `card.save` es verdadero.
     """
-    if request.method == 'POST':
-        if not request.user.is_authenticated:
-            return JsonResponse({'success': False, 'error': 'Debes iniciar sesión para reservar.'}, status=403)
-        try:
-            data = json.loads(request.body)
-            resource_id = data.get('resource_id')
-            start_time = parse_datetime(data.get('start_time'))
-            end_time = parse_datetime(data.get('end_time'))
-            repeat_weeks = int(data.get('repeat_weeks', 0))
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Debes iniciar sesión para reservar.'}, status=403)
+    try:
+        data = json.loads(request.body)
+        resource_id = data.get('resource_id')
+        start_time = parse_datetime(data.get('start_time'))
+        end_time = parse_datetime(data.get('end_time'))
+        repeat_weeks = int(data.get('repeat_weeks', 0))
 
-            # 1. Validar el pago antes de tocar la base de datos
-            metodo_guardado = None
-            datos_tarjeta = None
-            if data.get('payment_method_id'):
-                metodo_guardado = PaymentMethod.objects.filter(
-                    id=data['payment_method_id'], user=request.user
-                ).first()
-                if metodo_guardado is None:
-                    return JsonResponse({'success': False, 'error': 'Método de pago no encontrado.'}, status=404)
-                if not metodo_vigente(metodo_guardado):
-                    return JsonResponse({'success': False, 'error': 'El método de pago guardado está vencido.'}, status=400)
-            elif data.get('card'):
-                try:
-                    datos_tarjeta = validar_tarjeta(data['card'])
-                except PagoInvalido as e:
-                    return JsonResponse({'success': False, 'error': str(e)}, status=400)
-            else:
-                return JsonResponse({'success': False, 'error': 'Debes indicar un método de pago.'}, status=400)
+        # 1. Validar el pago antes de tocar la base de datos
+        metodo_guardado, datos_tarjeta = _resolver_pago(data, request.user)
 
-            # 2. Comprobar todas las semanas antes de crear nada
-            franjas = [
-                (start_time + timedelta(weeks=i), end_time + timedelta(weeks=i))
-                for i in range(repeat_weeks + 1)
-            ]
-            for i, (start, end) in enumerate(franjas):
-                overlapping = Booking.objects.filter(
+        # 2. Comprobar todas las semanas antes de crear nada
+        franjas = [
+            (start_time + timedelta(weeks=i), end_time + timedelta(weeks=i))
+            for i in range(repeat_weeks + 1)
+        ]
+        conflicto = _buscar_conflicto(resource_id, franjas)
+        if conflicto:
+            return JsonResponse({'success': False, 'error': conflicto})
+
+        # 3. Crear todo junto: o se guardan todas las reservas (y la tarjeta) o ninguna
+        with transaction.atomic():
+            if datos_tarjeta and data['card'].get('save'):
+                metodo_guardado = PaymentMethod.objects.create(user=request.user, **datos_tarjeta)
+            for start, end in franjas:
+                Booking.objects.create(
+                    user=request.user,
                     resource_id=resource_id,
-                    start_time__lt=end,
-                    end_time__gt=start
+                    start_time=start,
+                    end_time=end,
+                    payment_method=metodo_guardado,
                 )
-                if overlapping.exists():
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Conflicto: hay una reserva en la semana {i + 1} ({start}).'
-                    })
 
-            # 3. Crear todo junto: o se guardan todas las reservas (y la tarjeta) o ninguna
-            with transaction.atomic():
-                if datos_tarjeta and data['card'].get('save'):
-                    metodo_guardado = PaymentMethod.objects.create(user=request.user, **datos_tarjeta)
-                reservas_creadas = []
-                for start, end in franjas:
-                    Booking.objects.create(
-                        user=request.user,
-                        resource_id=resource_id,
-                        start_time=start,
-                        end_time=end,
-                        payment_method=metodo_guardado,
-                    )
-                    reservas_creadas.append({
-                        'start': start.isoformat(),
-                        'end': end.isoformat()
-                    })
-
-            return JsonResponse({
-                'success': True,
-                'reservas': reservas_creadas,
-                'payment_method': str(metodo_guardado) if metodo_guardado else None,
-            })
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+        return JsonResponse({
+            'success': True,
+            'reservas': [{'start': s.isoformat(), 'end': e.isoformat()} for s, e in franjas],
+            'payment_method': str(metodo_guardado) if metodo_guardado else None,
+        })
+    except _ErrorReserva as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=e.status)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @login_required

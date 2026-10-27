@@ -346,8 +346,8 @@
 
             document.getElementById('btn-cancelar').addEventListener('click', cerrarModalPago);
             document.getElementById('btn-pagar').addEventListener('click', function() {
-                let repeat = parseInt(document.getElementById('pago-repetir').value);
-                if (isNaN(repeat) || repeat < 0) repeat = 0;
+                let repeat = Number.parseInt(document.getElementById('pago-repetir').value, 10);
+                if (Number.isNaN(repeat) || repeat < 0) repeat = 0;
 
                 const cuerpo = {
                     resource_id: resourceId,
