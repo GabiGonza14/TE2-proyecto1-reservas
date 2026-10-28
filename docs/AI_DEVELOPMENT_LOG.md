@@ -29,6 +29,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | #1 | Debug | Claude | Corregir el problema de zona horaria reportado por Derlin | `TIME_ZONE` = America/Panama, fechas con zona horaria en `crear_reservas_demo`, 3 pruebas de regresión (fallan con el código anterior) | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-19 | #1 | Código | Claude | Atender la revisión de Derlin sobre `SECRET_KEY`/`DEBUG` | `DEBUG` apagado por defecto, `DJANGO_SECRET_KEY` obligatoria fuera de desarrollo, `manage.py` activa el modo desarrollo; 3 pruebas nuevas (2 fallan con la configuración anterior) | Pendiente de nueva revisión | Gabriel |
 | 2026-10-27 | #1 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #7 en un clon limpio | 18/18 pruebas OK; instalación, migraciones, reservas manuales, recurrencia y admin verificados | Aceptado: QA OK; observación no bloqueante registrada abajo | Isalleth |
+| 2026-10-27 | #2 | Revisión | ChatGPT (GPT-6) | Revisar seguridad, validación de tarjetas, transacciones, pruebas y calidad del PR #8 | 37/37 pruebas OK; error reproducido con `repeat_weeks=-1`: 0 reservas y 1 tarjeta guardada; sugerencia para ampliar pruebas recurrentes | Request changes; solicitar validación y prueba de regresión | Derlin |
 
 ## Respuestas incorrectas de la IA
 
@@ -55,3 +56,4 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | Configuración segura por defecto: `DEBUG=False` y `SECRET_KEY` obligatoria; solo `manage.py` activa el modo desarrollo | Revisión de Derlin: evitar despliegues inseguros sin complicar el trabajo local |
 | 2026-10-19 | La validación de bloqueos (`Availability`) en el servidor se deja para HU2 (#3), no en este PR | Derlin es Dev de HU2 y es parte del calendario; queda como criterio de aceptación en #3 |
 | 2026-10-18 | HU4 pasa a Isalleth como Developer (Derlin Reviewer, Gabriel QA) | Equilibrar: cada integrante es Dev de 2 historias |
+| 2026-10-27 | Request changes en PR #8 (HU1) | Derlin reprodujo un caso donde una solicitud con semanas negativas guarda tarjeta sin crear reserva; requiere corrección y prueba de regresión antes de aprobar |
