@@ -1,50 +1,35 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Gestor de Reservas - Mis métodos de pago</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"
-          integrity="sha384-HtMZLkYo+pR5/u7zCzXxMJP6QoNnQJt1qkHM0EaOPvGDIzaVZbmYr/TlvUZ/sKAg" crossorigin="anonymous">
-</head>
-<body class="bg-gray-100">
+{% extends "reservas/base.html" %}
 
-    <!-- NAVBAR -->
-    <nav class="bg-blue-600 text-white p-4 flex justify-between">
-        <a href="{% url 'home' %}" class="text-xl font-bold">Gestor de Reservas</a>
-        <div>
-            <span class="mr-4">Hola, {{ user.username }}</span>
-            <a href="{% url 'mis_reservas' %}" class="mr-4 hover:underline">Mis reservas</a>
-            <a href="{% url 'logout' %}" class="bg-red-500 px-3 py-1 rounded hover:bg-red-600">Cerrar Sesión</a>
-        </div>
-    </nav>
+{% block titulo %}Mis métodos de pago{% endblock %}
+{% block ancho %}contenedor-estrecho{% endblock %}
 
-    <!-- CONTENIDO -->
-    <div class="max-w-2xl mx-auto mt-8 px-4">
-        <h2 class="text-2xl font-bold mb-2">Mis métodos de pago</h2>
-        <p class="text-gray-600 mb-6">Se guardan al reservar marcando "Guardar mis datos". Solo guardamos el titular, la marca, los últimos 4 dígitos y el vencimiento.</p>
+{% block contenido %}
+<div class="encabezado">
+    <h1>Mis métodos de pago</h1>
+    <p>Se guardan al reservar marcando "Guardar mis datos". Solo guardamos el titular, la marca, los últimos 4 dígitos y el vencimiento.</p>
+</div>
 
-        {% for message in messages %}
-            <div class="bg-green-100 text-green-800 p-3 rounded mb-4">{{ message }}</div>
-        {% endfor %}
-
-        {% for metodo in metodos %}
-        <div class="bg-white rounded-lg shadow p-4 mb-3 flex justify-between items-center">
+<div class="lista">
+    {% for metodo in metodos %}
+    <div class="tarjeta tarjeta-pago">
+        <div class="tarjeta-pago-info">
+            <span class="mini-tarjeta" aria-hidden="true">{{ metodo.brand|upper }}</span>
             <div>
-                <p class="font-semibold">{{ metodo.brand }} •••• {{ metodo.last4 }}</p>
-                <p class="text-gray-600 text-sm">{{ metodo.holder_name }} · vence {{ metodo.exp_month|stringformat:"02d" }}/{{ metodo.exp_year }}</p>
+                <h2>{{ metodo.brand }} •••• {{ metodo.last4 }}</h2>
+                <p>{{ metodo.holder_name }} · vence {{ metodo.exp_month|stringformat:"02d" }}/{{ metodo.exp_year }}</p>
             </div>
-            <form method="post" onsubmit="return confirm('¿Eliminar este método de pago?');">
-                {% csrf_token %}
-                <input type="hidden" name="metodo_id" value="{{ metodo.id }}">
-                <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Eliminar</button>
-            </form>
         </div>
-        {% empty %}
-        <p class="text-gray-500">No tienes métodos de pago guardados.</p>
-        {% endfor %}
-
-        <a href="{% url 'home' %}" class="inline-block mt-6 text-blue-600 hover:underline">← Volver a las pistas</a>
+        <form method="post" onsubmit="return confirm('¿Eliminar este método de pago?');">
+            {% csrf_token %}
+            <input type="hidden" name="metodo_id" value="{{ metodo.id }}">
+            <button type="submit" class="boton boton-peligro boton-pequeno">Eliminar</button>
+        </form>
     </div>
-
-</body>
-</html>
+    {% empty %}
+    <div class="tarjeta vacio">
+        <p>No tienes métodos de pago guardados. Se añaden al reservar con una tarjeta nueva.</p>
+        <a href="{% url 'home' %}" class="boton boton-primario">Ver pistas</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
