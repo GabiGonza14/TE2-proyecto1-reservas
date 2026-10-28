@@ -39,6 +39,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #4 | Testing | OpenCode (DeepSeek V4.1 Flash) | Crear pruebas del cálculo de previsión, picos, comando y control de acceso | 10 pruebas nuevas: histórico, previsión por día de la semana, total semanal sin redondear, sin datos, exclusión de futuras, acceso staff/no staff y comando idempotente | Aceptado: falta revisión de Gabriel y QA de Derlin | Isalleth |
 | 2026-10-28 | #4 | Debug | OpenCode (DeepSeek V4.1 Flash) | Atender la revisión de Gabriel del PR #9: modo oscuro y sugerencias no bloqueantes | Dashboard con variables de color del admin, total semanal calculado antes de redondear, texto sobre el inicio de la previsión y nota de recursos demo en el README; 48/48 pruebas OK | Aceptado: pendiente de nueva revisión | Isalleth |
 | 2026-10-28 | #4 | Revisión | Claude | Revisar el PR #9: código, pruebas y dashboard en el navegador | 47/47 pruebas OK, comando y control de acceso correctos; 3 sugerencias no bloqueantes; primero recomendó Approve | Rechazado en parte: se piden cambios por el modo oscuro (ver abajo) | Gabriel |
+| 2026-10-28 | #4 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #9 en un clon limpio | 48/48 pruebas OK; 8/8 pruebas manuales OK (sin datos, histórico de 244 reservas, idempotencia, previsión, permisos, enlaces, modo claro/oscuro y fechas/horas); 2 observaciones de redondeo no bloqueantes | Aceptado: QA OK | Derlin |
 
 ## Respuestas incorrectas de la IA
 
