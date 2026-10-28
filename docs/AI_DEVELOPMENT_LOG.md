@@ -12,7 +12,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | #1 Preparación | Gabriel | Derlin | Isalleth |
 | #2 HU1 Pago con datos guardados | Gabriel | Derlin | Isalleth |
 | #3 HU2 Calendario disponible/ocupado | Isalleth | Gabriel | Gabriel |
-| #4 HU3 Previsión de demanda | Isalleth | Gabriel | Derlin |
+| #4 HU3 Previsión de demanda | Isalleth | Gabriel | Isalleth |
 | #5 HU4 Cancelar o modificar reserva | Gabriel | Isalleth | Isalleth |
 | #6 HU5 Correo de confirmación | Gabriel | Isalleth | Isalleth |
 
@@ -45,7 +45,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #4 | Testing | OpenCode (DeepSeek V4.1 Flash) | Crear pruebas del cálculo de previsión, picos, comando y control de acceso | 10 pruebas nuevas: histórico, previsión por día de la semana, total semanal sin redondear, sin datos, exclusión de futuras, acceso staff/no staff y comando idempotente | Aceptado: falta revisión de Gabriel y QA de Derlin | Isalleth |
 | 2026-10-28 | #4 | Debug | OpenCode (DeepSeek V4.1 Flash) | Atender la revisión de Gabriel del PR #9: modo oscuro y sugerencias no bloqueantes | Dashboard con variables de color del admin, total semanal calculado antes de redondear, texto sobre el inicio de la previsión y nota de recursos demo en el README; 48/48 pruebas OK | Aceptado: pendiente de nueva revisión | Isalleth |
 | 2026-10-28 | #4 | Revisión | Claude | Revisar el PR #9: código, pruebas y dashboard en el navegador | 47/47 pruebas OK, comando y control de acceso correctos; 3 sugerencias no bloqueantes; primero recomendó Approve | Rechazado en parte: se piden cambios por el modo oscuro (ver abajo) | Gabriel |
-| 2026-10-28 | #4 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #9 en un clon limpio | 48/48 pruebas OK; 8/8 pruebas manuales OK (sin datos, histórico de 244 reservas, idempotencia, previsión, permisos, enlaces, modo claro/oscuro y fechas/horas); 2 observaciones de redondeo no bloqueantes | Aceptado: QA OK | Derlin |
+| 2026-10-28 | #4 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #9 en un clon limpio | 48/48 pruebas OK; 8/8 pruebas manuales OK (sin datos, histórico de 244 reservas, idempotencia, previsión, permisos, enlaces, modo claro/oscuro y fechas/horas); 2 observaciones de redondeo no bloqueantes | Aceptado: QA OK | Isalleth |
 | 2026-10-28 | #5 | Diseño | Claude | Diseñar HU4: cancelar o modificar mi reserva | Página "Mis reservas"; reglas en `reservas/gestion.py`; antelación mínima configurable (2 h por defecto); al modificar se mantiene la duración y se reutilizan las validaciones de solapamiento y bloqueos | Aceptado: se implementa en el PR | Gabriel |
 | 2026-10-28 | #5 | Código | Claude | Implementar HU4: lista de mis reservas, cancelar y cambiar fecha/hora | Vistas solo por POST y solo del dueño (403 si no), mensajes de error claros, enlaces "Mis reservas" en la barra | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-28 | #5 | Testing | Claude | Pruebas automatizadas de HU4 y prueba del flujo en navegador | 15 pruebas nuevas (72 en total); flujo probado con Playwright: conflicto rechazado, cambio a franja libre y cancelación | Pendiente de revisión (PR) | Gabriel |
@@ -99,3 +99,4 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | Derlin sigue en el equipo pero no puede hacer tareas (se le dañó la computadora). Nuevos roles: HU2 Dev Isalleth (Review y QA Gabriel); HU4 y HU5 Dev Gabriel (Review y QA Isalleth); QA de HU3 pasa a Gabriel | Con dos personas, quien no desarrolla hace revisión y QA, y nadie aprueba su propio PR |
 | 2026-10-28 | HU4: se puede cancelar o modificar hasta 2 h antes del inicio (configurable con `DJANGO_RESERVA_ANTELACION_HORAS`) | Dar tiempo a otro usuario para usar la franja liberada; el valor se puede ajustar sin tocar código |
 | 2026-10-28 | HU4: al modificar se cambian fecha y hora de inicio, se mantiene la duración y no se cambia el recurso ni el pago | Cambio acotado y sin nuevo cobro; cambiar duración o recurso equivale a una reserva nueva |
+| 2026-10-28 | Corrección del registro: el QA de HU3 (PR #9) lo hizo Isalleth, no Derlin, aunque también fue la developer | Derlin no pudo hacerlo por la computadora dañada; la verificación independiente de HU3 fue la revisión de Gabriel, que encontró el problema del modo oscuro |
