@@ -4,18 +4,20 @@ import subprocess
 import sys
 import warnings
 from io import StringIO
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone as dj_timezone
 
 from .models import Booking, PaymentMethod, Resource
 from .pagos import PagoInvalido, detectar_marca, validar_tarjeta
+from .prevision import construir_datos_prevision
 
 
 TARJETA_VALIDA = {
@@ -351,3 +353,144 @@ class PagoGuardadoTests(TestCase):
         resp = self.client.get(reverse("calendario_full", args=[self.resource.id]))
         self.assertContains(resp, "7777")
         self.assertEqual(resp.context["metodos_pago"][0]["id"], metodo.id)
+
+
+class PrevisionDemandaTests(TestCase):
+    """HU3: histórico y previsión por día de la semana."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("ana", password="clave-segura-123")
+        self.resource = Resource.objects.create(name="Pista A")
+        self.resource2 = Resource.objects.create(name="Pista B")
+
+    def _reserva(self, fecha, hora, resource=None):
+        inicio = dj_timezone.make_aware(datetime.combine(fecha, time(hora, 0)))
+        return Booking.objects.create(
+            user=self.user,
+            resource=resource or self.resource,
+            start_time=inicio,
+            end_time=inicio + timedelta(hours=1),
+        )
+
+    def test_calcula_historico_picos_y_prevision(self):
+        hoy = date(2026, 10, 28)  # miércoles
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
+        inicio_historial = inicio_semana - timedelta(weeks=2)
+
+        for semana in range(2):
+            lunes = inicio_historial + timedelta(weeks=semana)
+            self._reserva(lunes, 10)
+            martes = lunes + timedelta(days=1)
+            self._reserva(martes, 18)
+            self._reserva(martes, 19)
+            self._reserva(martes, 20)
+            self._reserva(martes, 18, resource=self.resource2)
+            miercoles = lunes + timedelta(days=2)
+            self._reserva(miercoles, 9)
+            self._reserva(miercoles, 11)
+
+        datos = construir_datos_prevision(
+            hoy=hoy, semanas_historial=2, semanas_futuras=2
+        )
+
+        self.assertTrue(datos["hay_historial"])
+        self.assertEqual(datos["total_historico"], 14)
+        self.assertEqual(datos["promedio_semanal"], 7.0)
+        self.assertEqual(datos["pico_dia"], {"nombre": "Martes", "total": 8})
+        self.assertEqual(datos["pico_hora"], {"hora": "18:00", "total": 4})
+        self.assertEqual([semana["total"] for semana in datos["por_semana"]], [7, 7])
+        self.assertEqual(datos["por_recurso"][0]["nombre"], "Pista A")
+        self.assertEqual(datos["por_recurso"][0]["total"], 12)
+        self.assertEqual(len(datos["por_dia"]), 14)
+
+        prevision = datos["prevision_semanas"]
+        self.assertEqual(len(prevision), 2)
+        self.assertEqual(prevision[0]["total"], 7.0)
+        self.assertEqual([dia["prediccion"] for dia in prevision[0]["dias"][:3]], [1.0, 4.0, 2.0])
+        self.assertEqual(datos["prevision_total"], 14.0)
+
+    def test_sin_historial_devuelve_ceros_y_no_falla(self):
+        datos = construir_datos_prevision(hoy=date(2026, 10, 28))
+
+        self.assertFalse(datos["hay_historial"])
+        self.assertEqual(datos["total_historico"], 0)
+        self.assertEqual(datos["promedio_semanal"], 0.0)
+        self.assertIsNone(datos["pico_dia"])
+        self.assertIsNone(datos["pico_hora"])
+        self.assertEqual(datos["por_recurso"], [])
+        self.assertEqual(datos["prevision_total"], 0)
+        self.assertEqual(len(datos["prevision_semanas"]), 4)
+
+    def test_no_cuenta_reservas_futuras_ni_de_la_semana_en_curso(self):
+        hoy = date(2026, 10, 28)
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
+        self._reserva(inicio_semana - timedelta(days=7), 10)  # semana anterior
+        self._reserva(inicio_semana, 10)  # lunes de la semana en curso
+        self._reserva(hoy + timedelta(days=7), 10)  # futura
+
+        datos = construir_datos_prevision(hoy=hoy, semanas_historial=8)
+
+        self.assertEqual(datos["total_historico"], 1)
+
+
+class PrevisionDemandaVistaTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            "staff", password="clave-segura-123", is_staff=True
+        )
+        self.normal = User.objects.create_user("normal", password="clave-segura-123")
+
+    def test_anonimo_redirige_al_login_del_admin(self):
+        resp = self.client.get(reverse("prevision_demanda"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/admin/login/", resp.url)
+
+    def test_usuario_no_staff_no_accede(self):
+        self.client.force_login(self.normal)
+        resp = self.client.get(reverse("prevision_demanda"))
+        self.assertEqual(resp.status_code, 302)
+
+    def test_staff_accede_y_ve_el_dashboard(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse("prevision_demanda"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Previsión de demanda")
+        self.assertContains(resp, "media de reservas de cada día")
+        self.assertContains(resp, "<h1>Previsión de demanda</h1>", count=1)
+
+    def test_admin_index_enlaza_al_dashboard(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get("/admin/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Abrir previsión de demanda")
+
+
+class GenerarHistoricoDemandaTests(TestCase):
+    def test_genera_historico_pasado_y_es_idempotente(self):
+        call_command(
+            "generar_historico_demanda", "--semanas", "2", "--seed", "7",
+            stdout=StringIO(),
+        )
+        total = Booking.objects.count()
+        self.assertGreater(total, 0)
+        self.assertTrue(Booking.objects.filter(user__username="demanda_historial").exists())
+
+        hoy = dj_timezone.localdate()
+        for reserva in Booking.objects.all():
+            inicio = dj_timezone.localtime(reserva.start_time)
+            fin = dj_timezone.localtime(reserva.end_time)
+            self.assertLess(inicio.date(), hoy)
+            self.assertGreaterEqual(inicio.hour, 9)
+            self.assertLessEqual(fin.hour, 21)
+
+        call_command(
+            "generar_historico_demanda", "--semanas", "2", "--seed", "7",
+            stdout=StringIO(),
+        )
+        self.assertEqual(Booking.objects.count(), total)
+
+    def test_rechaza_semanas_invalidas(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "generar_historico_demanda", "--semanas", "0", stdout=StringIO()
+            )

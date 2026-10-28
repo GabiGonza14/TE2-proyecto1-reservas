@@ -1,6 +1,9 @@
 from django.contrib import admin
 from .models import Resource, Availability, Booking, PaymentMethod
 
+# Enlace al dashboard de demanda desde la portada del admin.
+admin.site.index_template = 'admin/prevision_index.html'
+
 # --- CONFIGURACIÓN DEL PANEL ADMIN ---
 
 @admin.register(Resource)
