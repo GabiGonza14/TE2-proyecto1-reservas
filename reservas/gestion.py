@@ -62,8 +62,9 @@ def modificar_reserva(reserva, fecha, hora, ahora=None):
     with transaction.atomic():
         reserva.start_time = inicio
         reserva.end_time = fin
+        reserva.recordatorio_enviado_en = None  # el nuevo horario necesita su propio recordatorio
         # clean() ya rechaza solapamientos (incluida la franja idéntica); validate_unique solo
         # duplicaría el mensaje con el texto genérico de unique_together.
         reserva.full_clean(validate_unique=False)
-        reserva.save(update_fields=['start_time', 'end_time'])
+        reserva.save(update_fields=['start_time', 'end_time', 'recordatorio_enviado_en'])
     return reserva

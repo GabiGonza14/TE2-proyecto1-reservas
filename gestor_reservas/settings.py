@@ -142,3 +142,17 @@ LOGIN_URL = "login"
 
 # HU4: horas mínimas antes del inicio para cancelar o modificar una reserva.
 RESERVA_ANTELACION_MINIMA_HORAS = int(os.environ.get("DJANGO_RESERVA_ANTELACION_HORAS", "2"))
+
+# HU5: correo. En desarrollo (DEBUG) se muestran en la consola; en producción se usa SMTP
+# configurado por variables de entorno. Las pruebas usan el buzón en memoria de Django.
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("DJANGO_EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("DJANGO_EMAIL_USE_TLS", "True") == "True"
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.environ.get("DJANGO_DEFAULT_FROM_EMAIL", "Gestor de Reservas <no-reply@localhost>")

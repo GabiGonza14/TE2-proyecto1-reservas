@@ -21,6 +21,8 @@ Incluye un **calendario interactivo con FullCalendar**, gestión de usuarios, va
 - 👨💼 **Panel de administración Django Admin** para gestionar usuarios, recursos, reservas y bloqueos.
 - 📊 **Previsión de demanda** para staff: histórico por día/semana y recurso, días y horas pico y previsión de las próximas semanas.
 - 🔔 **Notificaciones al usuario** al crear reservas o cuando se produce un conflicto.
+- ✏️ **Mis reservas**: cancelar o cambiar fecha y hora hasta 2 h antes del inicio.
+- ✉️ **Correos**: confirmación al crear, modificar o cancelar, y recordatorio de las reservas de las próximas 24 h.
 
 ---
 
@@ -82,6 +84,12 @@ En producción (servidor WSGI/ASGI) `DEBUG` queda apagado y **`DJANGO_SECRET_KEY
 | `DJANGO_DEBUG` | `False` (`True` al usar `manage.py`) | Activa el modo depuración |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts separados por comas |
 | `DJANGO_TIME_ZONE` | `America/Panama` | Zona horaria del sistema (horario de reservas 09:00–21:00) |
+| `DJANGO_RESERVA_ANTELACION_HORAS` | `2` | Horas mínimas antes del inicio para cancelar o modificar |
+| `DJANGO_EMAIL_BACKEND` | consola con `DEBUG=True`, SMTP sin él | Backend de correo de Django |
+| `DJANGO_EMAIL_HOST` / `DJANGO_EMAIL_PORT` | `localhost` / `587` | Servidor SMTP |
+| `DJANGO_EMAIL_HOST_USER` / `DJANGO_EMAIL_HOST_PASSWORD` | vacíos | Credenciales SMTP |
+| `DJANGO_EMAIL_USE_TLS` | `True` | Usar TLS con el servidor SMTP |
+| `DJANGO_DEFAULT_FROM_EMAIL` | `Gestor de Reservas <no-reply@localhost>` | Remitente de los correos |
 
 Uso de la aplicación
 Panel de administración:
@@ -100,6 +108,14 @@ python manage.py generar_historico_demanda --semanas 8 --seed 42
 ```
 
 El comando crea tres recursos de demostración (`Pista Histórica A`, `Pista Histórica B` y `Sala Histórica`). Aparecen en la página de inicio y se pueden reservar como cualquier otro recurso; usa `--limpiar` si quieres regenerar solo sus reservas históricas.
+
+Correos de reserva:
+
+Al crear, modificar o cancelar una reserva el usuario recibe un correo (si tiene correo registrado; se asigna en el admin). En desarrollo los correos se imprimen en la terminal donde corre `runserver`. Los recordatorios de las reservas de las próximas 24 h se envían con un comando pensado para ejecutarse periódicamente (por ejemplo cada hora con cron o el Programador de tareas de Windows); cada reserva recibe un solo recordatorio:
+
+```bash
+python manage.py enviar_recordatorios
+```
 
 Home Page (Listado de recursos):
 Verás todas las pistas (pádel, fútbol, tenis, etc.) con cards interactivas y un botón para ver el calendario de cada una.

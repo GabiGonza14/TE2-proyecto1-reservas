@@ -18,6 +18,7 @@ from django.db import transaction
 from .models import Resource, Booking, Availability, PaymentMethod
 from .disponibilidad import HORA_FIN, HORA_INICIO, calcular_dias_disponibilidad, obtener_eventos_disponibilidad
 from .gestion import ReservaNoGestionable, cancelar_reserva, modificar_reserva, puede_gestionarse
+from .notificaciones import enviar_aviso
 from .pagos import PagoInvalido, metodo_vigente, validar_tarjeta
 from .prevision import construir_datos_prevision
 
@@ -271,6 +272,8 @@ def api_crear_reserva(request):
                     payment_method=metodo_guardado,
                 )
 
+        # Un solo correo con todas las semanas, después de guardar (si falla, la reserva se mantiene).
+        enviar_aviso('creada', request.user, Resource.objects.get(id=resource_id), franjas)
         return JsonResponse({
             'success': True,
             'reservas': [{'start': s.isoformat(), 'end': e.isoformat()} for s, e in franjas],
@@ -334,11 +337,13 @@ def cancelar_reserva_view(request, booking_id):
     reserva = _reserva_propia(request, booking_id)
     if reserva is None:
         return HttpResponseForbidden('No puedes cancelar una reserva de otro usuario.')
+    franja = (reserva.start_time, reserva.end_time)
     try:
         cancelar_reserva(reserva)
     except ReservaNoGestionable as e:
         messages.error(request, str(e))
     else:
+        enviar_aviso('cancelada', request.user, reserva.resource, [franja])
         messages.success(request, 'Reserva cancelada. La franja vuelve a estar disponible.')
     return redirect('mis_reservas')
 
@@ -357,6 +362,7 @@ def modificar_reserva_view(request, booking_id):
     if fecha is None or hora not in range(24):
         messages.error(request, 'Indica una fecha y una hora válidas.')
         return redirect('mis_reservas')
+    anterior = (reserva.start_time, reserva.end_time)
     try:
         modificar_reserva(reserva, fecha, hora)
     except ReservaNoGestionable as e:
@@ -364,6 +370,7 @@ def modificar_reserva_view(request, booking_id):
     except ValidationError as e:
         messages.error(request, ' '.join(e.messages))
     else:
+        enviar_aviso('modificada', request.user, reserva.resource, [(reserva.start_time, reserva.end_time)], anterior)
         messages.success(request, 'Reserva modificada.')
     return redirect('mis_reservas')
 
