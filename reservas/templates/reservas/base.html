@@ -42,7 +42,7 @@
     <main>
         <div class="contenedor {% block ancho %}{% endblock %}">
             {% if messages %}
-            <div class="mensajes" role="status">
+            <div class="mensajes" aria-live="polite">
                 {% for message in messages %}
                 <div class="mensaje mensaje-{{ message.tags|default:'info' }}">{{ message }}</div>
                 {% endfor %}

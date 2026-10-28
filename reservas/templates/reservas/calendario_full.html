@@ -41,8 +41,7 @@
 </div>
 
 <!-- Modal de pago (pago simulado, sin pasarela real) -->
-<div id="modal-pago" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
-    <div class="modal-contenido">
+<dialog id="modal-pago" class="modal-contenido" aria-labelledby="modal-titulo">
         <h2 id="modal-titulo">Confirmar reserva</h2>
         <p class="resumen">
             {% include "reservas/icono_calendario.html" with tam=20 %}
@@ -87,8 +86,7 @@
             <button type="button" id="btn-cancelar" class="boton boton-secundario">Cancelar</button>
             <button type="button" id="btn-pagar" class="boton boton-primario">Pagar y reservar</button>
         </div>
-    </div>
-</div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -285,7 +283,7 @@
                     contenedor.appendChild(opcionMetodo('nueva', 'Usar otra tarjeta', false));
                 }
                 actualizarFormularioNueva();
-                modal.classList.add('abierto');
+                modal.showModal();
             }
 
             function opcionMetodo(valor, texto, marcado) {
@@ -303,10 +301,14 @@
             }
 
             function cerrarModalPago() {
-                modal.classList.remove('abierto');
+                modal.close();
+            }
+
+            // Al cerrar (botón Cancelar, tecla Escape o tras reservar) se borran los datos sensibles.
+            modal.addEventListener('close', function() {
                 document.getElementById('pago-numero').value = '';
                 document.getElementById('pago-cvv').value = '';
-            }
+            });
 
             document.getElementById('btn-cancelar').addEventListener('click', cerrarModalPago);
             document.getElementById('btn-pagar').addEventListener('click', function() {
