@@ -108,7 +108,7 @@ Calendario interactivo:
 
 La vista mensual colorea cada día según su disponibilidad (verde: disponible, amarillo: parcial, rojo: completo, gris: pasado). Los días pasados o completos no se pueden seleccionar; al elegir un día parcial se abre la vista diaria para escoger una franja libre.
 
-Los eventos y estados se cargan por rango desde `/api/disponibilidad/<resource_id>/` (parámetros `start` y `end`), no desde todo el histórico. Tras reservar, el calendario actualiza los horarios ocupados sin recargar la página.
+Los eventos y estados se cargan por rango desde `/api/disponibilidad/<resource_id>/` (parámetros `start` y `end`), no desde todo el histórico; el endpoint rechaza rangos de más de 62 días. Tras reservar, el calendario actualiza los horarios ocupados sin recargar la página. Los eventos de reserva muestran solo `Reservado`, sin el nombre del usuario.
 
 El sistema valida solapamientos y bloqueos (`Availability`) tanto en el navegador como en el servidor. Las reservas recurrentes se comprueban semana a semana antes de crear ninguna.
 

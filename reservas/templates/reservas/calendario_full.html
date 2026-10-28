@@ -312,15 +312,21 @@
                     return false;
                 }
 
+                // En FullCalendar 6, selectAllow no recibe `view` en su argumento.
+                const tipoVista = info.view ? info.view.type : calendar.view.type;
                 const hoy = fechaLocal(new Date());
                 if (fechaLocal(info.start) < hoy) {
                     return false;
                 }
-                if (info.start < new Date() && fechaLocal(info.start) === hoy) {
+                if (
+                    tipoVista !== 'dayGridMonth'
+                    && info.start < new Date()
+                    && fechaLocal(info.start) === hoy
+                ) {
                     return false;
                 }
 
-                if (info.view.type === 'dayGridMonth') {
+                if (tipoVista === 'dayGridMonth') {
                     return dia.estado !== 'pasado' && dia.estado !== 'completo';
                 }
                 return dia.estado !== 'pasado' && !hayConflicto(info.start, info.end);
@@ -505,6 +511,23 @@
                 .then(data => {
                     if (data.success) {
                         cerrarModalPago();
+                        if (
+                            cuerpo.card
+                            && cuerpo.card.save
+                            && data.payment_method_id
+                            && data.payment_method
+                        ) {
+                            const yaExiste = metodosPago.some(
+                                metodo => String(metodo.id) === String(data.payment_method_id)
+                            );
+                            if (!yaExiste) {
+                                metodosPago.push({
+                                    id: data.payment_method_id,
+                                    label: data.payment_method,
+                                    vigente: true
+                                });
+                            }
+                        }
                         alert(`Reserva(s) creada(s) correctamente: ${data.reservas.length} reserva(s).`);
                         // Refresca eventos y estados sin recargar la página.
                         cargarDisponibilidad(calendar.view.activeStart, calendar.view.activeEnd);

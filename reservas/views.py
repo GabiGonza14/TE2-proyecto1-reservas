@@ -23,6 +23,10 @@ from .prevision import construir_datos_prevision
 DEFAULT_START = time(9, 0)   # 09:00
 DEFAULT_END = time(21, 0)    # 21:00
 
+# Un mes de calendario ocupa como máximo 42 días. Se permite un margen para
+# vistas semanales con navegación, pero se evita consultar años completos.
+MAX_DIAS_DISPONIBILIDAD = 62
+
 
 def calendario(request, resource_id):
     """
@@ -200,6 +204,16 @@ def api_disponibilidad(request, resource_id):
             {'success': False, 'error': 'El rango de fechas no es válido.'},
             status=400,
         )
+    if fin - inicio > timedelta(days=MAX_DIAS_DISPONIBILIDAD):
+        return JsonResponse(
+            {
+                'success': False,
+                'error': (
+                    f'El rango no puede superar {MAX_DIAS_DISPONIBILIDAD} días.'
+                ),
+            },
+            status=400,
+        )
 
     return JsonResponse({
         'success': True,
@@ -258,6 +272,7 @@ def api_crear_reserva(request):
             'success': True,
             'reservas': [{'start': s.isoformat(), 'end': e.isoformat()} for s, e in franjas],
             'payment_method': str(metodo_guardado) if metodo_guardado else None,
+            'payment_method_id': metodo_guardado.id if metodo_guardado else None,
         })
     except _ErrorReserva as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=e.status)
@@ -320,7 +335,7 @@ def api_reservas(request, resource_id):
     reservas = Booking.objects.filter(resource_id=resource_id).order_by('start_time')
     eventos = [
         {
-            "title": f"Reservado por {reserva.user.username}",
+            "title": "Reservado",
             "start": reserva.start_time.isoformat(),
             "end": reserva.end_time.isoformat(),
             "color": "#10b981",  # Verde

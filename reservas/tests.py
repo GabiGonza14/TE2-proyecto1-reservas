@@ -144,6 +144,9 @@ class DisponibilidadTests(TestCase):
             {evento["extendedProps"]["tipo"] for evento in data["eventos"]},
             {"reserva", "bloqueo"},
         )
+        titulos = {evento["title"] for evento in data["eventos"]}
+        self.assertNotIn("ana", titulos)
+        self.assertEqual(titulos, {"Reservado", "Bloqueo administrativo"})
 
     def test_endpoint_requiere_rango_valido(self):
         self.assertEqual(self.client.get(self.url).status_code, 400)
@@ -152,6 +155,36 @@ class DisponibilidadTests(TestCase):
             "end": "2026-11-02",
         })
         self.assertEqual(resp.status_code, 400)
+
+    def test_endpoint_rechaza_rangos_de_mas_de_62_dias(self):
+        resp = self.client.get(self.url, {
+            "start": "2026-01-01",
+            "end": "2026-04-01",
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()["success"])
+        self.assertIn("62", resp.json()["error"])
+
+    def test_endpoint_acepta_rangos_de_hasta_62_dias(self):
+        resp = self.client.get(self.url, {
+            "start": "2026-01-01",
+            "end": "2026-03-04",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()["dias"]), 62)
+
+    def test_dia_actual_descuenta_franjas_ya_pasadas(self):
+        dias = calcular_dias_disponibilidad(
+            self.resource,
+            self._aware(date(2026, 11, 2)),
+            self._aware(date(2026, 11, 3)),
+            hoy=date(2026, 11, 2),
+            ahora=self._aware(date(2026, 11, 2), 12),
+        )
+
+        self.assertEqual(dias[0]["franjas_pasadas"], 3)
+        self.assertEqual(dias[0]["franjas_libres"], 9)
+        self.assertEqual(dias[0]["estado"], "parcial")
 
     def test_clean_rechaza_reserva_que_cruza_un_bloqueo(self):
         Availability.objects.create(
@@ -302,6 +335,8 @@ class VistasTests(TestCase):
         )
         resp = self.client.get(reverse("api_reservas", args=[self.resource.id]))
         self.assertEqual(len(resp.json()), 1)
+        self.assertEqual(resp.json()[0]["title"], "Reservado")
+        self.assertNotIn("ana", resp.json()[0]["title"])
 
 
 class ReservasDemoTests(TestCase):
@@ -417,6 +452,8 @@ class PagoGuardadoTests(TestCase):
         campos = {f.name for f in PaymentMethod._meta.get_fields()}
         self.assertFalse({"number", "cvv"} & campos)
         self.assertEqual(Booking.objects.get().payment_method, metodo)
+        self.assertEqual(resp.json()["payment_method_id"], metodo.id)
+        self.assertEqual(resp.json()["payment_method"], str(metodo))
 
     def test_sin_marcar_guardar_no_se_guarda_la_tarjeta(self):
         resp = self._reservar(card={**TARJETA_VALIDA, "save": False})
