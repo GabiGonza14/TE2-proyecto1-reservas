@@ -3,14 +3,18 @@ from datetime import datetime, timedelta, time
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
 from django.utils.dateformat import format as date_format
 from django.utils.dateparse import parse_datetime
 from django.contrib.auth import authenticate, login, logout
+from django.contrib import admin as django_admin
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Resource, Booking, Availability, PaymentMethod
 from .pagos import PagoInvalido, metodo_vigente, validar_tarjeta
+from .prevision import construir_datos_prevision
 
 
 # Horario por defecto (si no hay Availability definida)
@@ -243,6 +247,16 @@ def metodos_pago(request):
     return render(request, 'reservas/metodos_pago.html', {
         'metodos': request.user.payment_methods.all(),
     })
+
+
+@require_GET
+@staff_member_required
+def prevision_demanda(request):
+    """Dashboard de histórico y previsión de demanda, solo para staff."""
+    contexto = django_admin.site.each_context(request)
+    contexto.update(construir_datos_prevision())
+    contexto['title'] = 'Previsión de demanda'
+    return render(request, 'reservas/prevision_demanda.html', contexto)
 
 
 def login_view(request):

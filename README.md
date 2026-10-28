@@ -19,6 +19,7 @@ Incluye un **calendario interactivo con FullCalendar**, gestión de usuarios, va
 - 🔁 **Reservas recurrentes** (opción de repetir semanalmente).
 - 🔒 **Bloqueos de recursos** gestionados desde el panel de administración.
 - 👨💼 **Panel de administración Django Admin** para gestionar usuarios, recursos, reservas y bloqueos.
+- 📊 **Previsión de demanda** para staff: histórico por día/semana y recurso, días y horas pico y previsión de las próximas semanas.
 - 🔔 **Notificaciones al usuario** al crear reservas o cuando se produce un conflicto.
 
 ---
@@ -58,6 +59,7 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser          # usuario para /admin/
 python manage.py crear_reservas_demo      # opcional: datos de prueba
+python manage.py generar_historico_demanda --semanas 8  # opcional: histórico para el dashboard
 python manage.py runserver
 ```
 
@@ -84,6 +86,20 @@ En producción (servidor WSGI/ASGI) `DEBUG` queda apagado y **`DJANGO_SECRET_KEY
 Uso de la aplicación
 Panel de administración:
 Accede a http://127.0.0.1:8000/admin/ para crear recursos (pistas) y gestionar reservas manualmente.
+
+Previsión de demanda (solo staff):
+
+En el panel de administración, abre “Abrir previsión de demanda” o entra a http://127.0.0.1:8000/prevision-demanda/.
+Muestra el histórico de reservas por día, semana y recurso, los días/horas pico y una previsión de las próximas 4 semanas calculada con la media de reservas de cada día de la semana en las últimas 8 semanas completas.
+
+Para generar datos históricos de prueba:
+
+```bash
+python manage.py generar_historico_demanda --semanas 8 --seed 42
+# --limpiar borra antes las reservas de los recursos históricos
+```
+
+El comando crea tres recursos de demostración (`Pista Histórica A`, `Pista Histórica B` y `Sala Histórica`). Aparecen en la página de inicio y se pueden reservar como cualquier otro recurso; usa `--limpiar` si quieres regenerar solo sus reservas históricas.
 
 Home Page (Listado de recursos):
 Verás todas las pistas (pádel, fútbol, tenis, etc.) con cards interactivas y un botón para ver el calendario de cada una.

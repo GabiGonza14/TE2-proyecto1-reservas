@@ -1,0 +1,333 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .demanda-intro {
+        color: var(--body-quiet-color);
+        max-width: 850px;
+        margin-bottom: 18px;
+    }
+    .demanda-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin: 18px 0 24px;
+    }
+    .demanda-kpi {
+        background: var(--body-bg);
+        color: var(--body-fg);
+        border: 1px solid var(--hairline-color);
+        border-left: 4px solid var(--link-fg);
+        border-radius: 6px;
+        padding: 14px 16px;
+    }
+    .demanda-kpi .label {
+        display: block;
+        color: var(--body-quiet-color);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .demanda-kpi strong {
+        display: block;
+        font-size: 24px;
+        margin: 5px 0 2px;
+        color: var(--body-fg);
+    }
+    .demanda-kpi small {
+        color: var(--body-quiet-color);
+    }
+    .demanda-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+    .demanda-panel {
+        background: var(--body-bg);
+        color: var(--body-fg);
+        border: 1px solid var(--hairline-color);
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 18px;
+    }
+    .demanda-panel h2 {
+        margin-top: 0;
+    }
+    .demanda-panel h3 {
+        margin: 14px 0 8px;
+        font-size: 14px;
+    }
+    .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 7px 0;
+        font-size: 13px;
+    }
+    .bar-label {
+        flex: 0 0 92px;
+        color: var(--body-fg);
+    }
+    .bar-track {
+        flex: 1;
+        height: 16px;
+        background: var(--darkened-bg);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .bar-fill {
+        display: block;
+        height: 100%;
+        min-width: 2px;
+        background: var(--link-fg);
+        border-radius: 8px;
+    }
+    .bar-fill.recurso {
+        background: var(--secondary);
+    }
+    .bar-fill.hora {
+        background: var(--link-hover-color);
+    }
+    .bar-fill.prevision {
+        background: var(--body-fg);
+    }
+    .bar-value {
+        flex: 0 0 58px;
+        text-align: right;
+        color: var(--body-fg);
+        font-weight: 600;
+    }
+    .compact .bar-row {
+        margin: 5px 0;
+    }
+    .peak-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+    }
+    .peak-grid ol {
+        margin: 6px 0 0 20px;
+        padding: 0;
+    }
+    .peak-grid li {
+        margin: 4px 0;
+    }
+    .forecast-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+    }
+    .forecast-card {
+        border: 1px solid var(--hairline-color);
+        border-radius: 6px;
+        padding: 12px;
+        background: var(--darkened-bg);
+        color: var(--body-fg);
+    }
+    .forecast-card h3 {
+        margin: 0 0 6px;
+        font-size: 13px;
+    }
+    .forecast-total {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--link-fg);
+        margin-bottom: 8px;
+    }
+    .forecast-total small {
+        font-size: 11px;
+        color: var(--body-quiet-color);
+        font-weight: 400;
+    }
+    .forecast-days {
+        display: grid;
+        gap: 3px;
+    }
+    .forecast-day {
+        display: flex;
+        justify-content: space-between;
+        border-top: 1px solid var(--hairline-color);
+        padding-top: 3px;
+        font-size: 12px;
+    }
+    .forecast-day strong {
+        color: var(--body-fg);
+    }
+    .empty-note {
+        background: var(--message-warning-bg);
+        color: var(--body-fg);
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        padding: 12px;
+        margin: 12px 0 18px;
+    }
+    @media (max-width: 600px) {
+        .bar-label { flex-basis: 76px; }
+        .bar-value { flex-basis: 45px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="demanda-intro">
+    Histórico de reservas por fecha de uso del recurso y previsión para las próximas
+    {{ semanas_futuras }} semanas. La previsión usa la <strong>media de reservas de cada día
+    de la semana</strong> en las últimas {{ semanas_historial }} semanas completas: cada día
+    futuro toma el promedio de su mismo día de la semana. La previsión comienza el lunes de la
+    próxima semana; el resto de la semana en curso no se incluye.
+</p>
+
+{% if not hay_historial %}
+<div class="empty-note">
+    Todavía no hay reservas históricas en las últimas {{ semanas_historial }} semanas completas.
+    Genera datos de prueba con <code>python manage.py generar_historico_demanda</code> para ver el dashboard.
+</div>
+{% endif %}
+
+<div class="demanda-kpis">
+    <div class="demanda-kpi">
+        <span class="label">Reservas históricas</span>
+        <strong>{{ total_historico }}</strong>
+        <small>últimas {{ semanas_historial }} semanas completas</small>
+    </div>
+    <div class="demanda-kpi">
+        <span class="label">Promedio semanal</span>
+        <strong>{{ promedio_semanal|floatformat:1 }}</strong>
+        <small>reservas por semana</small>
+    </div>
+    <div class="demanda-kpi">
+        <span class="label">Día pico</span>
+        <strong>{% if pico_dia %}{{ pico_dia.nombre }}{% else %}—{% endif %}</strong>
+        <small>{% if pico_dia %}{{ pico_dia.total }} reservas{% else %}sin datos{% endif %}</small>
+    </div>
+    <div class="demanda-kpi">
+        <span class="label">Hora pico</span>
+        <strong>{% if pico_hora %}{{ pico_hora.hora }}{% else %}—{% endif %}</strong>
+        <small>{% if pico_hora %}{{ pico_hora.total }} reservas{% else %}sin datos{% endif %}</small>
+    </div>
+    <div class="demanda-kpi">
+        <span class="label">Previsión próxima semana</span>
+        <strong>{% if prevision_semanas %}{{ prevision_semanas.0.total|floatformat:1 }}{% else %}0{% endif %}</strong>
+        <small>reservas previstas</small>
+    </div>
+</div>
+
+<div class="demanda-grid">
+    <section class="demanda-panel">
+        <h2>Reservas por semana</h2>
+        {% for semana in por_semana %}
+        <div class="bar-row">
+            <span class="bar-label">{{ semana.etiqueta }}</span>
+            <span class="bar-track"><span class="bar-fill" style="width: {{ semana.porcentaje }}%"></span></span>
+            <span class="bar-value">{{ semana.total }}</span>
+        </div>
+        {% empty %}
+        <p>Sin datos semanales.</p>
+        {% endfor %}
+    </section>
+
+    <section class="demanda-panel">
+        <h2>Reservas por recurso</h2>
+        {% for recurso in por_recurso %}
+        <div class="bar-row">
+            <span class="bar-label">{{ recurso.nombre }}</span>
+            <span class="bar-track"><span class="bar-fill recurso" style="width: {{ recurso.barra }}%"></span></span>
+            <span class="bar-value">{{ recurso.total }} ({{ recurso.porcentaje }}%)</span>
+        </div>
+        {% empty %}
+        <p>Sin reservas históricas por recurso.</p>
+        {% endfor %}
+    </section>
+</div>
+
+<div class="demanda-grid">
+    <section class="demanda-panel compact">
+        <h2>Detalle diario</h2>
+        <p class="help">Últimos 14 días del histórico, por fecha de uso.</p>
+        {% for dia in por_dia %}
+        <div class="bar-row">
+            <span class="bar-label">{{ dia.etiqueta }}</span>
+            <span class="bar-track"><span class="bar-fill" style="width: {{ dia.porcentaje }}%"></span></span>
+            <span class="bar-value">{{ dia.total }}</span>
+        </div>
+        {% empty %}
+        <p>Sin datos diarios.</p>
+        {% endfor %}
+    </section>
+
+    <section class="demanda-panel compact">
+        <h2>Reservas por hora de inicio</h2>
+        <p class="help">Franjas de 09:00 a 20:00.</p>
+        {% for hora in por_hora %}
+        <div class="bar-row">
+            <span class="bar-label">{{ hora.etiqueta }}</span>
+            <span class="bar-track"><span class="bar-fill hora" style="width: {{ hora.porcentaje }}%"></span></span>
+            <span class="bar-value">{{ hora.total }}</span>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+<section class="demanda-panel">
+    <h2>Días y horas pico</h2>
+    <div class="peak-grid">
+        <div>
+            <h3>Días con más reservas</h3>
+            <ol>
+                {% for dia in dias_top %}
+                <li>{{ dia.nombre }} — {{ dia.total }} reservas</li>
+                {% empty %}
+                <li>Sin datos.</li>
+                {% endfor %}
+            </ol>
+        </div>
+        <div>
+            <h3>Horas con más reservas</h3>
+            <ol>
+                {% for hora in horas_top %}
+                <li>{{ hora.hora }} — {{ hora.total }} reservas</li>
+                {% empty %}
+                <li>Sin datos.</li>
+                {% endfor %}
+            </ol>
+        </div>
+    </div>
+</section>
+
+<section class="demanda-panel">
+    <h2>Previsión de las próximas {{ semanas_futuras }} semanas</h2>
+    <p class="help">
+        Cada día previsto es la media histórica de ese día de la semana. Las barras muestran
+        el total semanal previsto.
+    </p>
+    {% for semana in prevision_semanas %}
+    <div class="bar-row">
+        <span class="bar-label">{{ semana.etiqueta }}</span>
+        <span class="bar-track"><span class="bar-fill prevision" style="width: {{ semana.porcentaje }}%"></span></span>
+        <span class="bar-value">{{ semana.total|floatformat:1 }}</span>
+    </div>
+    {% endfor %}
+
+    <div class="forecast-grid">
+        {% for semana in prevision_semanas %}
+        <div class="forecast-card">
+            <h3>{{ semana.etiqueta }}</h3>
+            <div class="forecast-total">
+                {{ semana.total|floatformat:1 }} <small>reservas previstas</small>
+            </div>
+            <div class="forecast-days">
+                {% for dia in semana.dias %}
+                <div class="forecast-day">
+                    <span>{{ dia.etiqueta }}</span>
+                    <strong>{{ dia.prediccion|floatformat:1 }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

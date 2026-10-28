@@ -1,0 +1,12 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<div class="module" style="margin-bottom: 20px;">
+    <h2>Análisis de demanda</h2>
+    <p>Consulta el histórico de reservas, los días y horas pico y la previsión de las próximas semanas.</p>
+    <p>
+        <a class="button" href="{% url 'prevision_demanda' %}">Abrir previsión de demanda</a>
+    </p>
+</div>
+{{ block.super }}
+{% endblock %}
