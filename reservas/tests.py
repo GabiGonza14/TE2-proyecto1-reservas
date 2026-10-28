@@ -235,12 +235,12 @@ class PagoGuardadoTests(TestCase):
         self.url = reverse("api_crear_reserva")
         self.client.force_login(self.ana)
 
-    def _reservar(self, hour=10, **pago):
+    def _reservar(self, hour=10, repeat=0, **pago):
         return self.client.post(self.url, json.dumps({
             "resource_id": self.resource.id,
             "start_time": _dt(hour=hour).isoformat(),
             "end_time": _dt(hour=hour + 1).isoformat(),
-            "repeat_weeks": 0,
+            "repeat_weeks": repeat,
             **pago,
         }), content_type="application/json")
 
@@ -307,10 +307,21 @@ class PagoGuardadoTests(TestCase):
             "start_time": _dt(hour=10).isoformat(),
             "end_time": _dt(hour=11).isoformat(),
             "repeat_weeks": 2,
-            "card": TARJETA_VALIDA,
+            "card": {**TARJETA_VALIDA, "save": True},
         }), content_type="application/json")
         self.assertFalse(resp.json()["success"])
         self.assertEqual(Booking.objects.filter(user=self.ana).count(), 0)
+        self.assertFalse(PaymentMethod.objects.exists())
+
+    def test_semanas_de_repeticion_invalidas_se_rechazan(self):
+        # Revisión de Derlin en PR #8: con -1 respondía éxito sin reservas pero guardaba la tarjeta
+        for repeat in (-1, "abc", 1.5, None, True):
+            with self.subTest(repeat=repeat):
+                resp = self._reservar(repeat=repeat, card={**TARJETA_VALIDA, "save": True})
+                self.assertEqual(resp.status_code, 400)
+                self.assertFalse(resp.json()["success"])
+                self.assertFalse(Booking.objects.exists())
+                self.assertFalse(PaymentMethod.objects.exists())
 
     def test_pagina_lista_solo_mis_metodos(self):
         self._metodo(self.ana, last4="1111")

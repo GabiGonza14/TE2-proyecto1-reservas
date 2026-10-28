@@ -155,6 +155,19 @@ def _resolver_pago(data, user):
     raise _ErrorReserva('Debes indicar un método de pago.')
 
 
+def _semanas_repeticion(valor):
+    """Valida `repeat_weeks`: un entero mayor o igual que 0 (0 = sin repetición)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, str)):
+        raise _ErrorReserva('Las semanas de repetición deben ser un número entero mayor o igual que 0.')
+    try:
+        semanas = int(valor)
+    except ValueError as e:
+        raise _ErrorReserva('Las semanas de repetición deben ser un número entero mayor o igual que 0.') from e
+    if semanas < 0:
+        raise _ErrorReserva('Las semanas de repetición deben ser un número entero mayor o igual que 0.')
+    return semanas
+
+
 def _buscar_conflicto(resource_id, franjas):
     """Devuelve el mensaje de conflicto de la primera franja ocupada, o None."""
     for i, (start, end) in enumerate(franjas):
@@ -179,7 +192,7 @@ def api_crear_reserva(request):
         resource_id = data.get('resource_id')
         start_time = parse_datetime(data.get('start_time'))
         end_time = parse_datetime(data.get('end_time'))
-        repeat_weeks = int(data.get('repeat_weeks', 0))
+        repeat_weeks = _semanas_repeticion(data.get('repeat_weeks', 0))
 
         # 1. Validar el pago antes de tocar la base de datos
         metodo_guardado, datos_tarjeta = _resolver_pago(data, request.user)

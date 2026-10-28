@@ -32,6 +32,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-27 | #2 | Diseño | Claude | Diseñar HU1 (pago con datos guardados) | Modelo `PaymentMethod` sin número completo ni CVV, pago simulado con validación Luhn/vencimiento/CVV, reserva en un clic con método guardado | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-27 | #2 | Código | Claude | Implementar HU1: API, modal de pago en el calendario y página "Mis métodos de pago" | Pago obligatorio al reservar; creación atómica (si una semana choca no se crea ninguna ni se guarda la tarjeta) | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-27 | #2 | Testing | Claude | Pruebas automatizadas de HU1 y prueba del flujo en navegador | 19 pruebas nuevas (37 en total); flujo probado con Playwright: tarjeta nueva → guardada → reserva en un clic | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-28 | #2 | Debug | Claude | Corregir lo pedido por Derlin en la revisión del PR #8 | `repeat_weeks` validado como entero ≥ 0 (400 si no); prueba nueva (falla con el código anterior) y prueba de recurrencia con conflicto ampliada con `save: true` | Pendiente de nueva revisión | Gabriel |
 
 ## Respuestas incorrectas de la IA
 
@@ -42,6 +43,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | #1 | Claude | Al corregir la configuración dejó una clave de desarrollo escrita en el código (`SECRET_KEY = "django-insecure-..."`) | SonarCloud marcó el Quality Gate en rojo (Security Rating E) | Clave aleatoria generada en `.dev_secret_key`, ignorado por git |
 | 2026-10-27 | #1 | OpenCode (DeepSeek V4.1 Flash) | Las 18 pruebas no detectaron que el aviso de solapamiento del cliente (`isReserved`) usa la lista `reservas` cargada al abrir el calendario y no se actualiza tras crear una reserva; sin recargar, una segunda selección solapada solo la rechaza el servidor | QA manual del PR #7: crear una reserva y, sin recargar, seleccionar un rango que la solape | El servidor rechaza la reserva (no hay doble reserva); pendiente no bloqueante para HU2: actualizar la lista o validar siempre contra el servidor |
 | 2026-10-27 | #2 | Claude | La página nueva "Mis métodos de pago" cargaba Tailwind desde el CDN sin `integrity`/`crossorigin`, y `api_crear_reserva` quedó con complejidad cognitiva 30 (límite 15) | SonarCloud marcó el Quality Gate en rojo en el PR #8 (Security Rating B) | Hash SRI (sha384) en el `<link>`, validación del pago y búsqueda de conflictos extraídas a funciones auxiliares; mismas 37 pruebas OK |
+| 2026-10-28 | #2 | Claude | `api_crear_reserva` aceptaba `repeat_weeks` negativo: con -1 respondía éxito sin crear reservas pero guardaba la tarjeta; las 37 pruebas no lo cubrían | Revisión de Derlin en el PR #8 (probó la API a mano) | Validación de `repeat_weeks` y prueba de regresión |
 
 ## Cambios de la IA rechazados
 
