@@ -14,8 +14,8 @@ Incluye un **calendario interactivo con FullCalendar**, gestión de usuarios, va
 - **User (Autenticación)** – Gestión de usuarios con login/logout.
 
 ### **Funcionalidades clave**
-- 📅 **Calendario de disponibilidad** con **FullCalendar**.
-- ⛔ **Evita solapamiento de reservas** automáticamente.
+- 📅 **Calendario de disponibilidad** con **FullCalendar**: marca cada día como disponible, parcialmente ocupado, completo o pasado.
+- ⛔ **Evita solapamiento de reservas y bloqueos** automáticamente, también en el servidor.
 - 🔁 **Reservas recurrentes** (opción de repetir semanalmente).
 - 🔒 **Bloqueos de recursos** gestionados desde el panel de administración.
 - 👨💼 **Panel de administración Django Admin** para gestionar usuarios, recursos, reservas y bloqueos.
@@ -106,8 +106,10 @@ Verás todas las pistas (pádel, fútbol, tenis, etc.) con cards interactivas y 
 
 Calendario interactivo:
 
-Selecciona un bloque de tiempo disponible para hacer una reserva.
+La vista mensual colorea cada día según su disponibilidad (verde: disponible, amarillo: parcial, rojo: completo, gris: pasado). Los días pasados o completos no se pueden seleccionar; al elegir un día parcial se abre la vista diaria para escoger una franja libre.
 
-El sistema valida solapamientos y bloqueos.
+Los eventos y estados se cargan por rango desde `/api/disponibilidad/<resource_id>/` (parámetros `start` y `end`), no desde todo el histórico. Tras reservar, el calendario actualiza los horarios ocupados sin recargar la página.
+
+El sistema valida solapamientos y bloqueos (`Availability`) tanto en el navegador como en el servidor. Las reservas recurrentes se comprueban semana a semana antes de crear ninguna.
 
 Se pueden crear reservas recurrentes (pregunta cuántas semanas repetir).

@@ -4,8 +4,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET
+from django.utils import timezone
 from django.utils.dateformat import format as date_format
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_date, parse_datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import admin as django_admin
 from django.contrib import messages
@@ -13,6 +14,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Resource, Booking, Availability, PaymentMethod
+from .disponibilidad import calcular_dias_disponibilidad, obtener_eventos_disponibilidad
 from .pagos import PagoInvalido, metodo_vigente, validar_tarjeta
 from .prevision import construir_datos_prevision
 
@@ -88,31 +90,11 @@ def calendario_navegable(request, resource_id):
 def calendario_full(request, resource_id):
     """
     Calendario interactivo con FullCalendar.
+
+    Los eventos y el estado de los días se cargan por rango desde
+    ``api_disponibilidad``; no se envía todo el histórico al template.
     """
     resource = get_object_or_404(Resource, id=resource_id)
-
-    reservas = Booking.objects.filter(resource=resource).order_by('start_time')
-    bloqueos = Availability.objects.filter(resource=resource)
-
-    # Lista de reservas
-    reservas_json = [
-        {
-            "start": reserva.start_time.isoformat(),
-            "end": reserva.end_time.isoformat(),
-            "title": f"Reservado por {reserva.user.username}",
-            "color": "#10b981",  # Verde reservas
-        }
-        for reserva in reservas
-    ]
-
-    # Lista de bloqueos (rojo)
-    bloqueos_json = [
-        {
-            "start": bloqueo.start_time.isoformat(),
-            "end": bloqueo.end_time.isoformat(),
-        }
-        for bloqueo in bloqueos
-    ]
 
     metodos = []
     if request.user.is_authenticated:
@@ -124,8 +106,6 @@ def calendario_full(request, resource_id):
     return render(request, 'reservas/calendario_full.html', {
         'resource': resource,
         'metodos_pago': metodos,
-        'reservas_json': json.dumps(reservas_json),
-        'bloqueos_json': json.dumps(bloqueos_json),
         'is_authenticated': request.user.is_authenticated,
     })
 
@@ -173,11 +153,62 @@ def _semanas_repeticion(valor):
 
 
 def _buscar_conflicto(resource_id, franjas):
-    """Devuelve el mensaje de conflicto de la primera franja ocupada, o None."""
+    """Devuelve el mensaje del primer conflicto de reserva o bloqueo, o None."""
     for i, (start, end) in enumerate(franjas):
-        if Booking.objects.filter(resource_id=resource_id, start_time__lt=end, end_time__gt=start).exists():
+        if Booking.objects.filter(
+            resource_id=resource_id,
+            start_time__lt=end,
+            end_time__gt=start,
+        ).exists():
             return f'Conflicto: hay una reserva en la semana {i + 1} ({start}).'
+        if Availability.objects.filter(
+            resource_id=resource_id,
+            start_time__lt=end,
+            end_time__gt=start,
+        ).exists():
+            return f'Conflicto: la franja de la semana {i + 1} ({start}) está bloqueada.'
     return None
+
+
+def _fecha_de_rango(valor, nombre):
+    """Parsea una fecha ISO (con o sin hora) y la devuelve con zona horaria."""
+    if not valor:
+        raise ValueError(f'Falta el parámetro {nombre}.')
+    fecha = parse_datetime(valor)
+    if fecha is None:
+        dia = parse_date(valor)
+        if dia is None:
+            raise ValueError(f'El parámetro {nombre} no es una fecha válida.')
+        fecha = timezone.make_aware(datetime.combine(dia, time.min))
+    if timezone.is_naive(fecha):
+        fecha = timezone.make_aware(fecha)
+    return fecha
+
+
+@require_GET
+def api_disponibilidad(request, resource_id):
+    """Devuelve días y eventos de disponibilidad para un rango de fechas."""
+    resource = get_object_or_404(Resource, id=resource_id)
+    try:
+        inicio = _fecha_de_rango(request.GET.get('start'), 'start')
+        fin = _fecha_de_rango(request.GET.get('end'), 'end')
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+    if inicio >= fin:
+        return JsonResponse(
+            {'success': False, 'error': 'El rango de fechas no es válido.'},
+            status=400,
+        )
+
+    return JsonResponse({
+        'success': True,
+        'resource_id': resource.id,
+        'start': inicio.isoformat(),
+        'end': fin.isoformat(),
+        'dias': calcular_dias_disponibilidad(resource, inicio, fin),
+        'eventos': obtener_eventos_disponibilidad(resource, inicio, fin),
+    })
 
 
 def api_crear_reserva(request):
@@ -208,7 +239,7 @@ def api_crear_reserva(request):
         ]
         conflicto = _buscar_conflicto(resource_id, franjas)
         if conflicto:
-            return JsonResponse({'success': False, 'error': conflicto})
+            return JsonResponse({'success': False, 'error': conflicto}, status=400)
 
         # 3. Crear todo junto: o se guardan todas las reservas (y la tarjeta) o ninguna
         with transaction.atomic():

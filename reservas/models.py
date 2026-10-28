@@ -53,6 +53,14 @@ class Booking(models.Model):
         if overlapping.exists():
             raise ValidationError("Ya existe una reserva en esta franja horaria.")
 
+        bloqueo = Availability.objects.filter(
+            resource=self.resource,
+            start_time__lt=self.end_time,
+            end_time__gt=self.start_time,
+        ).exists()
+        if bloqueo:
+            raise ValidationError("La franja horaria está bloqueada por el administrador.")
+
     class Meta:
         unique_together = ('resource', 'start_time', 'end_time')
 

@@ -25,6 +25,53 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
+        .leyenda {
+            max-width: 1000px;
+            margin: 0 auto 14px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+            font-size: 0.9rem;
+        }
+        .leyenda span::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 6px;
+            border-radius: 3px;
+            vertical-align: -1px;
+        }
+        .leyenda .disponible::before {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+        }
+        .leyenda .parcial::before {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+        }
+        .leyenda .completo::before {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+        }
+        .leyenda .pasado::before {
+            background: #e5e7eb;
+            border: 1px solid #9ca3af;
+        }
+        .fc .fc-daygrid-day.estado-disponible {
+            background-color: #ecfdf5;
+        }
+        .fc .fc-daygrid-day.estado-parcial {
+            background-color: #fef3c7;
+        }
+        .fc .fc-daygrid-day.estado-completo {
+            background-color: #fee2e2;
+        }
+        .fc .fc-daygrid-day.estado-pasado {
+            background-color: #e5e7eb;
+            opacity: 0.75;
+        }
         #btn-refresh {
             display: block;
             margin: 20px auto;
@@ -146,6 +193,13 @@
 
     <h1>Calendario Interactivo - {{ resource.name }}</h1>
 
+    <div class="leyenda" aria-label="Leyenda de disponibilidad">
+        <span class="disponible">Disponible</span>
+        <span class="parcial">Parcialmente ocupado</span>
+        <span class="completo">Completo</span>
+        <span class="pasado">Pasado</span>
+    </div>
+
     {% if not is_authenticated %}
     <div style="text-align:center; margin-bottom:20px; color:#b91c1c; font-weight:bold;">
         ⚠️ Debes <a href="/login/" style="color:#2563eb; text-decoration:underline;">iniciar sesión</a> para crear una reserva.
@@ -158,6 +212,7 @@
     <!-- Contenedor del calendario con data-resource-id y user-logged -->
     <div id='calendar' 
          data-resource-id="{{ resource.id }}" 
+         data-disponibilidad-url="{% url 'api_disponibilidad' resource.id %}"
          data-user-logged="{{ is_authenticated }}">
     </div>
 
@@ -206,92 +261,156 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            console.log("=== INICIANDO FULLCALENDAR CON BLOQUEOS Y RESERVAS ===");
-
             const calendarElement = document.getElementById('calendar');
             const resourceId = calendarElement.dataset.resourceId;
+            const disponibilidadUrl = calendarElement.dataset.disponibilidadUrl;
             const userLogged = calendarElement.dataset.userLogged === "True";
 
-            // Datos de reservas y bloqueos enviados desde Django
-            const reservas = JSON.parse('{{ reservas_json|escapejs }}');
-            const bloqueos = JSON.parse('{{ bloqueos_json|escapejs }}');
+            // Estado cargado por rango desde el endpoint JSON.
+            let diasPorFecha = {};
+            let eventosCargados = [];
+            let cargaActual = 0;
 
-            // Verifica si hay bloqueo del admin
-            function isBlocked(start, end) {
-                for (const b of bloqueos) {
-                    const bloqueadoStart = new Date(b.start);
-                    const bloqueadoEnd = new Date(b.end);
-                    if (start < bloqueadoEnd && end > bloqueadoStart) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            // Verifica si ya existe una reserva
-            function isReserved(start, end) {
-                for (const r of reservas) {
-                    const reservaStart = new Date(r.start);
-                    const reservaEnd = new Date(r.end);
-                    if (start < reservaEnd && end > reservaStart) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            var calendar = new FullCalendar.Calendar(calendarElement, {
-                initialView: 'timeGridWeek',
-                locale: 'es',
-                selectable: true,
-                slotMinTime: "09:00:00", // Horario inicial
-                slotMaxTime: "21:00:00", // Horario final
-                slotDuration: "01:00:00",
-                select: function(info) {
-                    const start = new Date(info.startStr);
-                    const end = new Date(info.endStr);
-
-                    if (isBlocked(start, end)) {
-                        alert("Esta franja horaria está bloqueada por el administrador.");
-                        return;
-                    }
-
-                    if (isReserved(start, end)) {
-                        alert("Ya existe una reserva en esta franja horaria.");
-                        return;
-                    }
-
-                    if (!userLogged) {
-                        alert("Debes iniciar sesión para crear una reserva.");
-                        return;
-                    }
-
-                    abrirModalPago(info.startStr, info.endStr);
-                },
-                eventSources: [
-    {
-        url: '/api/reservas/{{ resource.id }}/',
-        method: 'GET',
-        failure: function() {
-            alert('Error cargando eventos!');
-        }
-    },
-    {
-        events: JSON.parse('{{ bloqueos_json|escapejs }}'),
-        color: '#ef4444',  // Bloqueos en rojo
-        textColor: '#fff'  // Texto en blanco
-    }
-]
-
-            });
-
-            calendar.render();
-
-            // === PAGO Y CREACIÓN DE RESERVA ===
             const metodosPago = JSON.parse(document.getElementById('metodos-pago').textContent);
             const modal = document.getElementById('modal-pago');
             const errorPago = document.getElementById('pago-error');
             let seleccion = null;
+
+            function fechaLocal(fecha) {
+                const anio = fecha.getFullYear();
+                const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+                const dia = String(fecha.getDate()).padStart(2, '0');
+                return `${anio}-${mes}-${dia}`;
+            }
+
+            function hayConflicto(start, end) {
+                return eventosCargados.some(evento => {
+                    const inicio = new Date(evento.start);
+                    const fin = new Date(evento.end);
+                    return start < fin && end > inicio;
+                });
+            }
+
+            function diaDeSeleccion(start) {
+                return diasPorFecha[fechaLocal(start)] || null;
+            }
+
+            function actualizarTitulosDias() {
+                document.querySelectorAll('.fc-daygrid-day[data-date]').forEach(celda => {
+                    const dia = diasPorFecha[celda.getAttribute('data-date')];
+                    if (dia) {
+                        celda.title = `${dia.estado}: ${dia.franjas_libres} de ${dia.total_franjas} franjas libres`;
+                    } else {
+                        celda.removeAttribute('title');
+                    }
+                });
+            }
+
+            function seleccionPermitida(info) {
+                const dia = diaDeSeleccion(info.start);
+                if (!dia) {
+                    return false;
+                }
+
+                const hoy = fechaLocal(new Date());
+                if (fechaLocal(info.start) < hoy) {
+                    return false;
+                }
+                if (info.start < new Date() && fechaLocal(info.start) === hoy) {
+                    return false;
+                }
+
+                if (info.view.type === 'dayGridMonth') {
+                    return dia.estado !== 'pasado' && dia.estado !== 'completo';
+                }
+                return dia.estado !== 'pasado' && !hayConflicto(info.start, info.end);
+            }
+
+            function cargarDisponibilidad(start, end) {
+                const numeroCarga = ++cargaActual;
+                const params = new URLSearchParams({
+                    start: start.toISOString(),
+                    end: end.toISOString()
+                });
+
+                fetch(`${disponibilidadUrl}?${params.toString()}`, {
+                    headers: { 'Accept': 'application/json' }
+                })
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || 'No se pudo cargar la disponibilidad.');
+                    }
+                    return data;
+                })
+                .then(data => {
+                    if (numeroCarga !== cargaActual) {
+                        return;
+                    }
+                    diasPorFecha = {};
+                    (data.dias || []).forEach(dia => {
+                        diasPorFecha[dia.fecha] = dia;
+                    });
+                    eventosCargados = data.eventos || [];
+                    calendar.batchRendering(() => {
+                        calendar.removeAllEvents();
+                        eventosCargados.forEach(evento => calendar.addEvent(evento));
+                    });
+                    calendar.render();
+                    actualizarTitulosDias();
+                })
+                .catch(error => {
+                    console.error('Error cargando disponibilidad:', error);
+                });
+            }
+
+            const calendar = new FullCalendar.Calendar(calendarElement, {
+                initialView: 'timeGridWeek',
+                locale: 'es',
+                selectable: true,
+                slotMinTime: '09:00:00',
+                slotMaxTime: '21:00:00',
+                slotDuration: '01:00:00',
+                allDaySlot: false,
+                nowIndicator: true,
+                height: 'auto',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                dayCellClassNames: function(arg) {
+                    const dia = diasPorFecha[fechaLocal(arg.date)];
+                    return dia ? [`estado-${dia.estado}`] : [];
+                },
+                dayCellDidMount: function(arg) {
+                    const dia = diasPorFecha[fechaLocal(arg.date)];
+                    if (dia) {
+                        arg.el.title = `${dia.estado}: ${dia.franjas_libres} de ${dia.total_franjas} franjas libres`;
+                    }
+                },
+                selectAllow: seleccionPermitida,
+                select: function(info) {
+                    if (info.view.type === 'dayGridMonth') {
+                        calendar.changeView('timeGridDay', info.startStr);
+                        return;
+                    }
+                    if (!seleccionPermitida(info)) {
+                        alert('Esa franja no está disponible.');
+                        return;
+                    }
+                    if (!userLogged) {
+                        alert('Debes iniciar sesión para crear una reserva.');
+                        return;
+                    }
+                    abrirModalPago(info.startStr, info.endStr);
+                },
+                datesSet: function(info) {
+                    cargarDisponibilidad(info.start, info.end);
+                }
+            });
+
+            calendar.render();
 
             function metodoElegido() {
                 const radio = document.querySelector('input[name="pago-metodo"]:checked');
@@ -347,7 +466,9 @@
             document.getElementById('btn-cancelar').addEventListener('click', cerrarModalPago);
             document.getElementById('btn-pagar').addEventListener('click', function() {
                 let repeat = Number.parseInt(document.getElementById('pago-repetir').value, 10);
-                if (Number.isNaN(repeat) || repeat < 0) repeat = 0;
+                if (Number.isNaN(repeat) || repeat < 0) {
+                    repeat = 0;
+                }
 
                 const cuerpo = {
                     resource_id: resourceId,
@@ -385,12 +506,8 @@
                     if (data.success) {
                         cerrarModalPago();
                         alert(`Reserva(s) creada(s) correctamente: ${data.reservas.length} reserva(s).`);
-                        if (cuerpo.card && cuerpo.card.save) {
-                            // Recarga para que la tarjeta recién guardada aparezca como opción
-                            window.location.reload();
-                        } else {
-                            calendar.refetchEvents();
-                        }
+                        // Refresca eventos y estados sin recargar la página.
+                        cargarDisponibilidad(calendar.view.activeStart, calendar.view.activeEnd);
                     } else {
                         errorPago.textContent = data.error || 'Error al crear la reserva.';
                     }
@@ -417,11 +534,11 @@
                 return cookieValue;
             }
 
-            // Botón para refrescar eventos
-            var btnRefresh = document.getElementById('btn-refresh');
+            // Botón para refrescar eventos y disponibilidad.
+            const btnRefresh = document.getElementById('btn-refresh');
             if (btnRefresh) {
                 btnRefresh.addEventListener('click', function() {
-                    calendar.refetchEvents();
+                    cargarDisponibilidad(calendar.view.activeStart, calendar.view.activeEnd);
                 });
             }
         });
