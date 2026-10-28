@@ -91,6 +91,40 @@
             margin-right: 10px;
             font-weight: 500;
         }
+
+        /* === MODAL DE PAGO === */
+        #modal-pago {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        #modal-pago.abierto { display: flex; }
+        .modal-contenido {
+            background: white;
+            border-radius: 10px;
+            padding: 24px;
+            width: 100%;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-contenido h2 { margin-top: 0; }
+        .modal-contenido label { display: block; margin: 8px 0 4px; font-size: 0.9rem; }
+        .modal-contenido input[type=text], .modal-contenido input[type=number] {
+            width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 5px;
+        }
+        .fila { display: flex; gap: 8px; }
+        .fila > div { flex: 1; }
+        .metodo-guardado { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+        .modal-botones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+        .modal-botones button { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
+        #btn-pagar { background: #2563eb; color: white; }
+        #btn-cancelar { background: #e5e7eb; }
+        #pago-error { color: #b91c1c; margin-top: 8px; min-height: 1em; }
     </style>
 </head>
 <body>
@@ -102,6 +136,7 @@
         <div class="nav-right">
             {% if is_authenticated %}
                 <span class="user-info">Hola, {{ user.username }}</span>
+                <a href="{% url 'metodos_pago' %}">Mis métodos de pago</a>
                 <a href="/logout/" class="btn-logout">Cerrar Sesión</a>
             {% else %}
                 <a href="/login/" class="btn-login">Iniciar Sesión</a>
@@ -125,6 +160,49 @@
          data-resource-id="{{ resource.id }}" 
          data-user-logged="{{ is_authenticated }}">
     </div>
+
+    <!-- Modal de pago (pago simulado, sin pasarela real) -->
+    <div id="modal-pago">
+        <div class="modal-contenido">
+            <h2>Confirmar reserva</h2>
+            <p id="pago-resumen"></p>
+
+            <label for="pago-repetir">Repetir semanalmente (semanas extra)</label>
+            <input type="number" id="pago-repetir" min="0" value="0">
+
+            <div id="pago-guardados"></div>
+
+            <div id="pago-nueva">
+                <label for="pago-titular">Titular</label>
+                <input type="text" id="pago-titular" autocomplete="cc-name">
+                <label for="pago-numero">Número de tarjeta</label>
+                <input type="text" id="pago-numero" inputmode="numeric" autocomplete="cc-number">
+                <div class="fila">
+                    <div>
+                        <label for="pago-mes">Mes</label>
+                        <input type="number" id="pago-mes" min="1" max="12" placeholder="MM">
+                    </div>
+                    <div>
+                        <label for="pago-anio">Año</label>
+                        <input type="number" id="pago-anio" placeholder="AAAA">
+                    </div>
+                    <div>
+                        <label for="pago-cvv">CVV</label>
+                        <input type="text" id="pago-cvv" inputmode="numeric" autocomplete="cc-csc">
+                    </div>
+                </div>
+                <label><input type="checkbox" id="pago-guardar" checked> Guardar mis datos para próximas reservas</label>
+            </div>
+
+            <div id="pago-error"></div>
+            <div class="modal-botones">
+                <button type="button" id="btn-cancelar">Cancelar</button>
+                <button type="button" id="btn-pagar">Pagar y reservar</button>
+            </div>
+        </div>
+    </div>
+
+    {{ metodos_pago|json_script:"metodos-pago" }}
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -188,9 +266,7 @@
                         return;
                     }
 
-                    if (confirm(`¿Quieres crear una reserva desde ${info.startStr} hasta ${info.endStr}?`)) {
-                        crearReserva(info.startStr, info.endStr);
-                    }
+                    abrirModalPago(info.startStr, info.endStr);
                 },
                 eventSources: [
     {
@@ -211,36 +287,118 @@
 
             calendar.render();
 
-            // === FUNCIÓN CREAR RESERVA CON REPETICIONES ===
-            function crearReserva(start, end) {
-                let repeat = prompt("¿Cuántas semanas quieres repetir esta reserva? (0 = solo esta semana)", "0");
-                if (repeat === null) return;
-                repeat = parseInt(repeat);
-                if (isNaN(repeat) || repeat < 0) repeat = 0;
+            // === PAGO Y CREACIÓN DE RESERVA ===
+            const metodosPago = JSON.parse(document.getElementById('metodos-pago').textContent);
+            const modal = document.getElementById('modal-pago');
+            const errorPago = document.getElementById('pago-error');
+            let seleccion = null;
 
+            function metodoElegido() {
+                const radio = document.querySelector('input[name="pago-metodo"]:checked');
+                return radio ? radio.value : 'nueva';
+            }
+
+            function actualizarFormularioNueva() {
+                document.getElementById('pago-nueva').style.display = metodoElegido() === 'nueva' ? 'block' : 'none';
+            }
+
+            function abrirModalPago(start, end) {
+                seleccion = { start, end };
+                errorPago.textContent = '';
+                document.getElementById('pago-repetir').value = 0;
+                document.getElementById('pago-resumen').textContent =
+                    `${new Date(start).toLocaleString()} – ${new Date(end).toLocaleTimeString()}`;
+
+                // Métodos guardados: el primero vigente queda marcado (reserva en un clic)
+                const contenedor = document.getElementById('pago-guardados');
+                contenedor.innerHTML = '';
+                const vigentes = metodosPago.filter(m => m.vigente);
+                if (vigentes.length) {
+                    const titulo = document.createElement('label');
+                    titulo.textContent = 'Pagar con';
+                    contenedor.appendChild(titulo);
+                    vigentes.forEach((m, i) => contenedor.appendChild(opcionMetodo(m.id, m.label, i === 0)));
+                    contenedor.appendChild(opcionMetodo('nueva', 'Usar otra tarjeta', false));
+                }
+                actualizarFormularioNueva();
+                modal.classList.add('abierto');
+            }
+
+            function opcionMetodo(valor, texto, marcado) {
+                const fila = document.createElement('label');
+                fila.className = 'metodo-guardado';
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'pago-metodo';
+                radio.value = valor;
+                radio.checked = marcado;
+                radio.addEventListener('change', actualizarFormularioNueva);
+                fila.appendChild(radio);
+                fila.appendChild(document.createTextNode(texto));
+                return fila;
+            }
+
+            function cerrarModalPago() {
+                modal.classList.remove('abierto');
+                document.getElementById('pago-numero').value = '';
+                document.getElementById('pago-cvv').value = '';
+            }
+
+            document.getElementById('btn-cancelar').addEventListener('click', cerrarModalPago);
+            document.getElementById('btn-pagar').addEventListener('click', function() {
+                let repeat = Number.parseInt(document.getElementById('pago-repetir').value, 10);
+                if (Number.isNaN(repeat) || repeat < 0) repeat = 0;
+
+                const cuerpo = {
+                    resource_id: resourceId,
+                    start_time: seleccion.start,
+                    end_time: seleccion.end,
+                    repeat_weeks: repeat
+                };
+                const elegido = metodoElegido();
+                if (elegido === 'nueva') {
+                    cuerpo.card = {
+                        holder_name: document.getElementById('pago-titular').value,
+                        number: document.getElementById('pago-numero').value,
+                        exp_month: document.getElementById('pago-mes').value,
+                        exp_year: document.getElementById('pago-anio').value,
+                        cvv: document.getElementById('pago-cvv').value,
+                        save: document.getElementById('pago-guardar').checked
+                    };
+                } else {
+                    cuerpo.payment_method_id = elegido;
+                }
+                crearReserva(cuerpo);
+            });
+
+            function crearReserva(cuerpo) {
                 fetch('/api/reservas/crear/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': getCookie('csrftoken')
                     },
-                    body: JSON.stringify({
-                        resource_id: resourceId,
-                        start_time: start,
-                        end_time: end,
-                        repeat_weeks: repeat
-                    })
+                    body: JSON.stringify(cuerpo)
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        cerrarModalPago();
                         alert(`Reserva(s) creada(s) correctamente: ${data.reservas.length} reserva(s).`);
-                        calendar.refetchEvents();
+                        if (cuerpo.card && cuerpo.card.save) {
+                            // Recarga para que la tarjeta recién guardada aparezca como opción
+                            window.location.reload();
+                        } else {
+                            calendar.refetchEvents();
+                        }
                     } else {
-                        alert(data.error || 'Error al crear la reserva.');
+                        errorPago.textContent = data.error || 'Error al crear la reserva.';
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                    console.error('Error:', error);
+                    errorPago.textContent = 'No se pudo conectar con el servidor.';
+                });
             }
 
             // Función para obtener CSRF

@@ -29,6 +29,11 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | #1 | Debug | Claude | Corregir el problema de zona horaria reportado por Derlin | `TIME_ZONE` = America/Panama, fechas con zona horaria en `crear_reservas_demo`, 3 pruebas de regresión (fallan con el código anterior) | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-19 | #1 | Código | Claude | Atender la revisión de Derlin sobre `SECRET_KEY`/`DEBUG` | `DEBUG` apagado por defecto, `DJANGO_SECRET_KEY` obligatoria fuera de desarrollo, `manage.py` activa el modo desarrollo; 3 pruebas nuevas (2 fallan con la configuración anterior) | Pendiente de nueva revisión | Gabriel |
 | 2026-10-27 | #1 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #7 en un clon limpio | 18/18 pruebas OK; instalación, migraciones, reservas manuales, recurrencia y admin verificados | Aceptado: QA OK; observación no bloqueante registrada abajo | Isalleth |
+| 2026-10-27 | #2 | Diseño | Claude | Diseñar HU1 (pago con datos guardados) | Modelo `PaymentMethod` sin número completo ni CVV, pago simulado con validación Luhn/vencimiento/CVV, reserva en un clic con método guardado | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-27 | #2 | Código | Claude | Implementar HU1: API, modal de pago en el calendario y página "Mis métodos de pago" | Pago obligatorio al reservar; creación atómica (si una semana choca no se crea ninguna ni se guarda la tarjeta) | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-27 | #2 | Testing | Claude | Pruebas automatizadas de HU1 y prueba del flujo en navegador | 19 pruebas nuevas (37 en total); flujo probado con Playwright: tarjeta nueva → guardada → reserva en un clic | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-28 | #2 | Debug | Claude | Corregir lo pedido por Derlin en la revisión del PR #8 | `repeat_weeks` validado como entero ≥ 0 (400 si no); prueba nueva (falla con el código anterior) y prueba de recurrencia con conflicto ampliada con `save: true` | Pendiente de nueva revisión | Gabriel |
+| 2026-10-28 | #2 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #8 en un clon limpio | 38/38 pruebas OK; 9/9 pruebas manuales OK (pago simulado, tarjeta guardada, tarjetas inválidas, recurrencia con conflicto, aislamiento entre usuarios y admin) | Aceptado: QA OK | Isalleth |
 
 ## Respuestas incorrectas de la IA
 
@@ -38,6 +43,8 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-18 | #1 | Claude | Al mover `SECRET_KEY` y `DEBUG` a variables de entorno dejó valores inseguros por defecto (clave fija y `DEBUG=True`): un despliegue sin variables quedaba inseguro | Revisión de Derlin en PR #7 | Configuración segura por defecto y pruebas |
 | 2026-10-19 | #1 | Claude | Al corregir la configuración dejó una clave de desarrollo escrita en el código (`SECRET_KEY = "django-insecure-..."`) | SonarCloud marcó el Quality Gate en rojo (Security Rating E) | Clave aleatoria generada en `.dev_secret_key`, ignorado por git |
 | 2026-10-27 | #1 | OpenCode (DeepSeek V4.1 Flash) | Las 18 pruebas no detectaron que el aviso de solapamiento del cliente (`isReserved`) usa la lista `reservas` cargada al abrir el calendario y no se actualiza tras crear una reserva; sin recargar, una segunda selección solapada solo la rechaza el servidor | QA manual del PR #7: crear una reserva y, sin recargar, seleccionar un rango que la solape | El servidor rechaza la reserva (no hay doble reserva); pendiente no bloqueante para HU2: actualizar la lista o validar siempre contra el servidor |
+| 2026-10-27 | #2 | Claude | La página nueva "Mis métodos de pago" cargaba Tailwind desde el CDN sin `integrity`/`crossorigin`, y `api_crear_reserva` quedó con complejidad cognitiva 30 (límite 15) | SonarCloud marcó el Quality Gate en rojo en el PR #8 (Security Rating B) | Hash SRI (sha384) en el `<link>`, validación del pago y búsqueda de conflictos extraídas a funciones auxiliares; mismas 37 pruebas OK |
+| 2026-10-28 | #2 | Claude | `api_crear_reserva` aceptaba `repeat_weeks` negativo: con -1 respondía éxito sin crear reservas pero guardaba la tarjeta; las 37 pruebas no lo cubrían | Revisión de Derlin en el PR #8 (probó la API a mano) | Validación de `repeat_weeks` y prueba de regresión |
 
 ## Cambios de la IA rechazados
 
@@ -54,4 +61,6 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-19 | Zona horaria del sistema: America/Panama (configurable con `DJANGO_TIME_ZONE`) | Los usuarios y el equipo están en Panamá; el calendario muestra 09:00–21:00 local |
 | 2026-10-19 | Configuración segura por defecto: `DEBUG=False` y `SECRET_KEY` obligatoria; solo `manage.py` activa el modo desarrollo | Revisión de Derlin: evitar despliegues inseguros sin complicar el trabajo local |
 | 2026-10-19 | La validación de bloqueos (`Availability`) en el servidor se deja para HU2 (#3), no en este PR | Derlin es Dev de HU2 y es parte del calendario; queda como criterio de aceptación en #3 |
+| 2026-10-27 | HU1: pago simulado sin pasarela real; solo se guardan titular, marca, últimos 4 dígitos y vencimiento | No hay pasarela en el alcance del curso y guardar el número completo o el CVV sería inseguro |
+| 2026-10-27 | HU1 hace atómica la creación de reservas recurrentes (pendiente que estaba en HU2) | Al pagar no se puede guardar la tarjeta ni cobrar si una de las semanas falla |
 | 2026-10-18 | HU4 pasa a Isalleth como Developer (Derlin Reviewer, Gabriel QA) | Equilibrar: cada integrante es Dev de 2 historias |

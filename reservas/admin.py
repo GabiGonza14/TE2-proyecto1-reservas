@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Resource, Availability, Booking
+from .models import Resource, Availability, Booking, PaymentMethod
 
 # --- CONFIGURACIÓN DEL PANEL ADMIN ---
 
@@ -23,3 +23,10 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'resource', 'start_time', 'end_time', 'created_at')
     list_filter = ('resource', 'user')
     search_fields = ('user__username', 'resource__name')
+
+
+@admin.register(PaymentMethod)
+class PaymentMethodAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'brand', 'last4', 'exp_month', 'exp_year', 'created_at')
+    list_filter = ('brand',)
+    search_fields = ('user__username', 'holder_name', 'last4')
