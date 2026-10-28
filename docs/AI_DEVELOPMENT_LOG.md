@@ -37,6 +37,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #4 | Diseño | OpenCode (DeepSeek V4.1 Flash) | Diseñar HU3: dashboard de previsión de demanda para staff | Histórico por día/semana y recurso, días/horas pico, previsión por media de cada día de la semana y comando de histórico reproducible | Aceptado: método simple y explicable; se implementa en el PR | Isalleth |
 | 2026-10-28 | #4 | Código | OpenCode (DeepSeek V4.1 Flash) | Implementar la vista staff, el cálculo de previsión, el comando y el enlace desde el admin | `prevision.py`, vista con `staff_member_required`, dashboard administrativo, `generar_historico_demanda` y enlace en el índice del admin | Aceptado: 47/47 pruebas OK | Isalleth |
 | 2026-10-28 | #4 | Testing | OpenCode (DeepSeek V4.1 Flash) | Crear pruebas del cálculo de previsión, picos, comando y control de acceso | 9 pruebas nuevas: histórico, previsión por día de la semana, sin datos, exclusión de futuras, acceso staff/no staff y comando idempotente | Aceptado: falta revisión de Gabriel y QA de Derlin | Isalleth |
+| 2026-10-28 | #4 | Revisión | Claude | Revisar el PR #9: código, pruebas y dashboard en el navegador | 47/47 pruebas OK, comando y control de acceso correctos; 3 sugerencias no bloqueantes; primero recomendó Approve | Rechazado en parte: se piden cambios por el modo oscuro (ver abajo) | Gabriel |
 
 ## Respuestas incorrectas de la IA
 
@@ -50,6 +51,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #2 | Claude | `api_crear_reserva` aceptaba `repeat_weeks` negativo: con -1 respondía éxito sin crear reservas pero guardaba la tarjeta; las 37 pruebas no lo cubrían | Revisión de Derlin en el PR #8 (probó la API a mano) | Validación de `repeat_weeks` y prueba de regresión |
 | 2026-10-28 | #4 | OpenCode (DeepSeek V4.1 Flash) | La primera versión del dashboard duplicaba el título (`<title>` y `<h1>`) porque el template del admin ya renderiza `title`; además una prueba de hora pico asumía un desempate no determinista | Revisión en navegador y ejecución de las pruebas | Se eliminó el bloque de título y el `<h1>` propios; se ajustó el fixture para que la hora pico tenga un valor único |
 | 2026-10-28 | #4 | OpenCode (DeepSeek V4.1 Flash) | La primera versión del comando de histórico superaba la complejidad cognitiva (26 > 15) y usaba `random` sin justificar, lo que hizo fallar el Quality Gate de SonarCloud | SonarCloud en el PR #9 | Se dividió el comando en funciones auxiliares, se justificó `random` con `# NOSONAR` para datos de prueba y se añadió `@require_GET` a la vista |
+| 2026-10-28 | #4 | Claude | La revisión del PR #9 recomendó aprobar sin detectar que el dashboard no se lee en modo oscuro: los paneles tienen fondo blanco fijo y el texto hereda el color claro del admin | Gabriel al probar el dashboard en su navegador con modo oscuro | Revisión cambiada a Request changes: usar las variables de color del admin en lugar de colores fijos |
 
 ## Cambios de la IA rechazados
 
