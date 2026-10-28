@@ -1036,3 +1036,40 @@ class ConfiguracionCorreoTests(TestCase):
         backend, host = self._backend(DJANGO_EMAIL_HOST="smtp.example.com")
         self.assertEqual(backend, "django.core.mail.backends.smtp.EmailBackend")
         self.assertEqual(host, "smtp.example.com")
+
+
+class DisenoTests(TestCase):
+    """HU6: todas las páginas del usuario usan la plantilla base y la hoja de estilos común."""
+
+    def setUp(self):
+        self.ana = User.objects.create_user("ana", password="clave-segura-123")
+        self.resource = Resource.objects.create(name="Pista 1")
+
+    def test_paginas_usan_la_plantilla_base_sin_tailwind(self):
+        self.client.force_login(self.ana)
+        for url in (
+            reverse("home"), reverse("mis_reservas"), reverse("metodos_pago"),
+            reverse("calendario_full", args=[self.resource.id]), reverse("calendario", args=[self.resource.id]),
+        ):
+            with self.subTest(url=url):
+                resp = self.client.get(url)
+                self.assertTemplateUsed(resp, "reservas/base.html")
+                self.assertContains(resp, "reservas/app.css")
+                self.assertContains(resp, 'name="viewport"')
+                self.assertNotContains(resp, "tailwind")
+
+    def test_login_usa_la_plantilla_base_y_muestra_el_error(self):
+        resp = self.client.post(reverse("login"), {"username": "ana", "password": "mal"})
+        self.assertTemplateUsed(resp, "reservas/base.html")
+        self.assertContains(resp, "Usuario o contraseña incorrectos.")
+        self.assertContains(resp, 'for="usuario"')
+
+    def test_menu_marca_la_pagina_actual(self):
+        self.client.force_login(self.ana)
+        resp = self.client.get(reverse("mis_reservas"))
+        self.assertContains(resp, f'href="{reverse("mis_reservas")}" class="menu-enlace activo"')
+        self.assertContains(resp, f'href="{reverse("home")}" class="menu-enlace"')
+
+    def test_hoja_de_estilos_existe(self):
+        from django.contrib.staticfiles import finders
+        self.assertIsNotNone(finders.find("reservas/app.css"))

@@ -129,7 +129,7 @@ def obtener_eventos_disponibilidad(resource, inicio, fin):
             "start": reserva.start_time.isoformat(),
             "end": reserva.end_time.isoformat(),
             "title": "Reservado",
-            "color": "#10b981",
+            "color": "#0f766e",  # verde azulado con contraste AA para el texto blanco (HU6)
             "extendedProps": {"tipo": "reserva", "booking_id": reserva.id},
         })
 
@@ -144,7 +144,7 @@ def obtener_eventos_disponibilidad(resource, inicio, fin):
             "start": bloqueo.start_time.isoformat(),
             "end": bloqueo.end_time.isoformat(),
             "title": "Bloqueo administrativo",
-            "color": "#ef4444",
+            "color": "#b91c1c",  # rojo con contraste AA (HU6)
             "extendedProps": {"tipo": "bloqueo", "availability_id": bloqueo.id},
         })
 

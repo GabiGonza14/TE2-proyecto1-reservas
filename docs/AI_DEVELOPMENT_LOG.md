@@ -15,6 +15,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | #4 HU3 Previsión de demanda | Isalleth | Gabriel | Isalleth |
 | #5 HU4 Cancelar o modificar reserva | Gabriel | Isalleth | Isalleth |
 | #6 HU5 Correo de confirmación | Gabriel | Isalleth | Isalleth |
+| #13 HU6 Rediseño visual | Gabriel | Isalleth | Isalleth |
 
 ## Registro
 
@@ -56,6 +57,9 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #6 | Testing | Claude | Pruebas de HU5 con `django.core.mail.outbox` | 13 pruebas nuevas (85 en total): confirmación, recurrente en un solo correo, sin correo, SMTP caído, modificar, cancelar, rechazos sin correo, ventana de 24 h sin duplicados, reintento y configuración de consola/SMTP | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-28 | #6 | Revisión | OpenCode (DeepSeek V4.1 Flash) | Revisar el código del PR #12 (Files changed) y validar diseño de notificaciones | Gestión resiliente de correos (fallo SMTP/sin email no bloquea flujo), unificación en plantilla de texto, comando idempotente con bloqueo optimista | Aceptado: Approve | Isalleth |
 | 2026-10-28 | #6 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #12 en un clon limpio | 85/85 pruebas OK; verificación de correo de confirmación, recurrencia en 1 correo con todas las fechas, modificación con franjas Antes/Ahora, cancelación, reserva sin correo tolerada y comando idempotente (1 y luego 0) | Aceptado: QA OK | Isalleth |
+| 2026-10-28 | #13 | Diseño | Claude | Proponer una identidad visual para toda la aplicación | Paleta verde azulado, tipografía del sistema, tarjetas, botones y formularios comunes; hoja de estilos propia (`reservas/static/reservas/app.css`) en lugar de Tailwind por CDN; menú desplegable en móvil | Aceptado: se implementa en el PR | Gabriel |
+| 2026-10-28 | #13 | Código | Claude | Rediseñar inicio, login, calendario, modal de pago, Mis reservas, métodos de pago y el calendario semanal | Plantilla `base.html` con barra, mensajes y pie; páginas que la heredan; botones del calendario en español; colores de eventos con contraste AA; sin cambios en vistas, URLs ni datos | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-28 | #13 | Testing | Claude | Pruebas de plantillas y revisión en el navegador | 4 pruebas nuevas (89 en total); capturas de antes y después en escritorio y móvil con Playwright; flujo de reserva con pago probado tras el rediseño | Pendiente de revisión (PR) | Gabriel |
 
 ## Respuestas incorrectas de la IA
 
@@ -77,6 +81,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #5 | Claude | Al modificar una reserva a la misma franja que otra, mostraba dos errores: el propio y el genérico de `unique_together` ("Booking con este Resource, Start time y End time ya existe.") | Prueba del flujo en el navegador | `full_clean(validate_unique=False)`, porque `clean()` ya rechaza la franja idéntica; prueba que exige un único mensaje |
 | 2026-10-28 | #5 | Claude | La vista nueva `mis_reservas` aceptaba cualquier método HTTP (GET, POST, etc.) aunque solo muestra datos | SonarCloud marcó el Quality Gate en rojo en el PR #11 (Security Rating B) | `@require_GET` en la vista y prueba de que POST responde 405 |
 | 2026-10-28 | #5 | Claude | `modificar_reserva_view` solo comprobaba que llegaran fecha y hora: una fecha imposible con formato correcto (`2026-13-45`) o una hora fuera de 0–23 (`25`, `-1`) daba error 500; la prueba de datos inválidos solo cubría texto no numérico | Segunda revisión del PR #11 hecha con Claude (sesión de Gabriel), enviando esos valores a mano | La vista valida fecha y hora y muestra "Indica una fecha y una hora válidas."; la prueba cubre los tres casos (fallaba antes del arreglo) |
+| 2026-10-28 | #13 | Claude | En la primera versión del rediseño el título del calendario salía "Octubre De 2026" (mayúscula en cada palabra) y la fecha del modal de pago en formato de EE. UU. ("10/31/2026, 1:00:00 p. m.") | Revisión de las capturas del navegador antes de abrir el PR | Solo la primera letra en mayúscula y fecha con formato en español ("sábado, 31 de octubre de 2026, 13:00") |
 
 ## Cambios de la IA rechazados
 
@@ -102,3 +107,6 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | HU4: se puede cancelar o modificar hasta 2 h antes del inicio (configurable con `DJANGO_RESERVA_ANTELACION_HORAS`) | Dar tiempo a otro usuario para usar la franja liberada; el valor se puede ajustar sin tocar código |
 | 2026-10-28 | HU4: al modificar se cambian fecha y hora de inicio, se mantiene la duración y no se cambia el recurso ni el pago | Cambio acotado y sin nuevo cobro; cambiar duración o recurso equivale a una reserva nueva |
 | 2026-10-28 | Corrección del registro: el QA de HU3 (PR #9) lo hizo Isalleth, no Derlin, aunque también fue la developer | Derlin no pudo hacerlo por la computadora dañada; la verificación independiente de HU3 fue la revisión de Gabriel, que encontró el problema del modo oscuro |
+| 2026-10-28 | HU5: una reserva recurrente envía un solo correo con todas las fechas, y un fallo del correo no deshace la reserva | Evitar varios correos por una sola acción; un problema del servidor de correo no debe impedir reservar (confirmado por Gabriel) |
+| 2026-10-28 | HU5: el recordatorio lo envía un comando periódico (`enviar_recordatorios`) | El proyecto no tiene cola de tareas; el comando es simple de probar y de programar (confirmado por Gabriel) |
+| 2026-10-28 | Nueva historia HU6 (#13): rediseño visual, solo de diseño; Developer Gabriel, Review y QA Isalleth | La interfaz se veía sosa y cada página tenía estilos distintos |
