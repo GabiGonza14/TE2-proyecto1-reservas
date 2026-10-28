@@ -60,6 +60,8 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #13 | Diseño | Claude | Proponer una identidad visual para toda la aplicación | Paleta verde azulado, tipografía del sistema, tarjetas, botones y formularios comunes; hoja de estilos propia (`reservas/static/reservas/app.css`) en lugar de Tailwind por CDN; menú desplegable en móvil | Aceptado: se implementa en el PR | Gabriel |
 | 2026-10-28 | #13 | Código | Claude | Rediseñar inicio, login, calendario, modal de pago, Mis reservas, métodos de pago y el calendario semanal | Plantilla `base.html` con barra, mensajes y pie; páginas que la heredan; botones del calendario en español; colores de eventos con contraste AA; sin cambios en vistas, URLs ni datos | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-28 | #13 | Testing | Claude | Pruebas de plantillas y revisión en el navegador | 4 pruebas nuevas (89 en total); capturas de antes y después en escritorio y móvil con Playwright; flujo de reserva con pago probado tras el rediseño | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-28 | #13 | Revisión | OpenCode (DeepSeek V4.1 Flash) | Revisar código del PR #14 (Files changed): base.html, app.css, plantillas y capturas | Diseño consistente y cohesivo, eliminación de CDN externo innecesario, accesibilidad y contraste AA, sin rotura de funcionalidad existente | Aceptado: Approve | Isalleth |
+| 2026-10-28 | #13 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #14 en escritorio y móvil | 89/89 pruebas OK; inicio, login con error/éxito, calendarios (mes/semana/día), reserva con modal, Mis reservas (cambiar/cancelar), métodos de pago y menú responsive en móvil verificados | Aceptado: QA OK | Isalleth |
 
 ## Respuestas incorrectas de la IA
 
