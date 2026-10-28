@@ -17,7 +17,7 @@ from django.utils import timezone as dj_timezone
 
 from .models import Booking, PaymentMethod, Resource
 from .pagos import PagoInvalido, detectar_marca, validar_tarjeta
-from .prevision import construir_datos_prevision
+from .prevision import _prevision_semanas, construir_datos_prevision
 
 
 TARJETA_VALIDA = {
@@ -408,6 +408,18 @@ class PrevisionDemandaTests(TestCase):
         self.assertEqual(prevision[0]["total"], 7.0)
         self.assertEqual([dia["prediccion"] for dia in prevision[0]["dias"][:3]], [1.0, 4.0, 2.0])
         self.assertEqual(datos["prevision_total"], 14.0)
+
+    def test_total_semanal_suma_antes_de_redondear(self):
+        inicio_semana = date(2026, 10, 26)  # lunes
+        promedios = {dia: 1.125 for dia in range(7)}
+
+        semanas = _prevision_semanas(inicio_semana, 1, promedios)
+
+        self.assertEqual(semanas[0]["total"], 7.9)
+        self.assertEqual(
+            round(sum(dia["prediccion"] for dia in semanas[0]["dias"]), 1),
+            7.7,
+        )
 
     def test_sin_historial_devuelve_ceros_y_no_falla(self):
         datos = construir_datos_prevision(hoy=date(2026, 10, 28))

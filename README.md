@@ -99,6 +99,8 @@ python manage.py generar_historico_demanda --semanas 8 --seed 42
 # --limpiar borra antes las reservas de los recursos históricos
 ```
 
+El comando crea tres recursos de demostración (`Pista Histórica A`, `Pista Histórica B` y `Sala Histórica`). Aparecen en la página de inicio y se pueden reservar como cualquier otro recurso; usa `--limpiar` si quieres regenerar solo sus reservas históricas.
+
 Home Page (Listado de recursos):
 Verás todas las pistas (pádel, fútbol, tenis, etc.) con cards interactivas y un botón para ver el calendario de cada una.
 

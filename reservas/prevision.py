@@ -139,16 +139,19 @@ def _prevision_semanas(inicio_semana_actual, semanas_futuras, promedios):
     for indice in range(semanas_futuras):
         inicio = inicio_prevision + timedelta(weeks=indice)
         dias = []
+        total_semanal = 0
         for desplazamiento in range(7):
             fecha = inicio + timedelta(days=desplazamiento)
+            prediccion = promedios[fecha.weekday()]
+            total_semanal += prediccion
             dias.append({
                 "etiqueta": DIAS_CORTOS[fecha.weekday()],
                 "fecha": fecha,
-                "prediccion": round(promedios[fecha.weekday()], 1),
+                "prediccion": round(prediccion, 1),
             })
         semanas.append({
             "etiqueta": f"{inicio:%d/%m}–{(inicio + timedelta(days=6)):%d/%m}",
-            "total": round(sum(dia["prediccion"] for dia in dias), 1),
+            "total": round(total_semanal, 1),
             "dias": dias,
         })
 
