@@ -299,6 +299,7 @@ def metodos_pago(request):
 
 
 @login_required
+@require_GET
 def mis_reservas(request):
     """HU4: próximas reservas del usuario, con opciones para cancelar o modificar."""
     ahora = timezone.now()

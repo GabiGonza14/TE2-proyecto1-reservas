@@ -743,6 +743,9 @@ class GestionReservasTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse("login"), resp.url)
 
+    def test_lista_solo_acepta_get(self):
+        self.assertEqual(self.client.post(reverse("mis_reservas")).status_code, 405)
+
     def test_cancelar_mi_reserva_libera_la_franja(self):
         reserva = self._reserva()
         dia = self._local(3, 0)
