@@ -349,12 +349,12 @@ def modificar_reserva_view(request, booking_id):
     reserva = _reserva_propia(request, booking_id)
     if reserva is None:
         return HttpResponseForbidden('No puedes modificar una reserva de otro usuario.')
-    fecha = parse_date(request.POST.get('fecha') or '')
     try:
+        fecha = parse_date(request.POST.get('fecha') or '')
         hora = int(request.POST.get('hora', ''))
-    except ValueError:
-        hora = None
-    if fecha is None or hora is None:
+    except ValueError:  # texto no numérico o fecha con formato correcto pero imposible (2026-13-45)
+        fecha = hora = None
+    if fecha is None or hora not in range(24):
         messages.error(request, 'Indica una fecha y una hora válidas.')
         return redirect('mis_reservas')
     try:

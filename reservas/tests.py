@@ -863,9 +863,16 @@ class GestionReservasTests(TestCase):
 
     def test_datos_invalidos_no_rompen(self):
         reserva = self._reserva()
-        resp = self.client.post(
-            reverse("modificar_reserva", args=[reserva.id]), {"fecha": "no-es-fecha", "hora": "x"},
-        )
-        self.assertRedirects(resp, reverse("mis_reservas"))
-        reserva.refresh_from_db()
-        self.assertEqual(reserva.start_time, self._local(3, 10))
+        fecha = (dj_timezone.localdate() + timedelta(days=4)).isoformat()
+        casos = [
+            {"fecha": "no-es-fecha", "hora": "x"},
+            {"fecha": "2026-13-45", "hora": "10"},  # formato correcto, fecha imposible
+            {"fecha": fecha, "hora": "25"},
+            {"fecha": fecha, "hora": "-1"},
+        ]
+        for datos in casos:
+            with self.subTest(datos=datos):
+                resp = self.client.post(reverse("modificar_reserva", args=[reserva.id]), datos)
+                self.assertRedirects(resp, reverse("mis_reservas"))
+                reserva.refresh_from_db()
+                self.assertEqual(reserva.start_time, self._local(3, 10))
