@@ -4,15 +4,18 @@ import subprocess
 import sys
 import warnings
 from io import StringIO
+from unittest import mock
 from datetime import date, datetime, time, timedelta, timezone
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import formats
 from django.utils import timezone as dj_timezone
 
 from .disponibilidad import calcular_dias_disponibilidad
@@ -876,3 +879,160 @@ class GestionReservasTests(TestCase):
                 self.assertRedirects(resp, reverse("mis_reservas"))
                 reserva.refresh_from_db()
                 self.assertEqual(reserva.start_time, self._local(3, 10))
+
+
+class CorreosReservaTests(TestCase):
+    """HU5: correo de confirmación al crear, modificar o cancelar, y recordatorio de 24 h."""
+
+    def setUp(self):
+        self.ana = User.objects.create_user("ana", email="ana@example.com", password="clave-segura-123")
+        self.resource = Resource.objects.create(name="Pista 1")
+        self.client.force_login(self.ana)
+        self.metodo = PaymentMethod.objects.create(
+            user=self.ana, holder_name="Ana", brand="Visa", last4="4242",
+            exp_month=12, exp_year=datetime.now().year + 2,
+        )
+
+    def _local(self, days, hour):
+        fecha = dj_timezone.localdate() + timedelta(days=days)
+        return dj_timezone.make_aware(datetime.combine(fecha, time(hour)))
+
+    def _reservar(self, days=3, hour=10, repeat=0):
+        return self.client.post(reverse("api_crear_reserva"), json.dumps({
+            "resource_id": self.resource.id,
+            "start_time": self._local(days, hour).isoformat(),
+            "end_time": self._local(days, hour + 1).isoformat(),
+            "repeat_weeks": repeat,
+            "payment_method_id": self.metodo.id,
+        }), content_type="application/json")
+
+    def _reserva(self, user=None, inicio=None):
+        inicio = inicio or self._local(3, 10)
+        return Booking.objects.create(
+            user=user or self.ana, resource=self.resource, start_time=inicio, end_time=inicio + timedelta(hours=1),
+        )
+
+    def _recordatorios(self):
+        salida = StringIO()
+        call_command("enviar_recordatorios", stdout=salida)
+        return salida.getvalue()
+
+    def test_crear_reserva_envia_confirmacion_con_recurso_fecha_y_hora(self):
+        self.assertTrue(self._reservar(hour=10).json()["success"])
+        self.assertEqual(len(mail.outbox), 1)
+        correo = mail.outbox[0]
+        self.assertEqual(correo.to, ["ana@example.com"])
+        self.assertIn("Reserva confirmada", correo.subject)
+        self.assertIn("Pista 1", correo.body)
+        fecha = formats.date_format(self._local(3, 10), r"j \d\e F \d\e Y")
+        self.assertIn(fecha, correo.body)
+        self.assertIn("10:00–11:00", correo.body)  # hora local, no UTC
+
+    def test_reserva_recurrente_envia_un_solo_correo_con_todas_las_fechas(self):
+        self._reservar(repeat=2)
+        self.assertEqual(Booking.objects.count(), 3)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].body.count("10:00–11:00"), 3)
+
+    def test_reserva_rechazada_no_envia_correo(self):
+        self._reserva()
+        self.assertEqual(self._reservar().status_code, 400)
+        self.assertEqual(mail.outbox, [])
+
+    def test_usuario_sin_correo_reserva_igual_sin_error(self):
+        self.ana.email = ""
+        self.ana.save()
+        self.assertTrue(self._reservar().json()["success"])
+        self.assertEqual(Booking.objects.count(), 1)
+        self.assertEqual(mail.outbox, [])
+
+    def test_fallo_del_servidor_de_correo_no_impide_reservar(self):
+        with mock.patch("reservas.notificaciones.send_mail", side_effect=OSError("SMTP caído")), \
+                self.assertLogs("reservas.notificaciones", level="ERROR"):
+            resp = self._reservar()
+        self.assertTrue(resp.json()["success"])
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_modificar_envia_correo_con_horario_anterior_y_nuevo(self):
+        reserva = self._reserva()
+        fecha = (dj_timezone.localdate() + timedelta(days=4)).isoformat()
+        self.client.post(reverse("modificar_reserva", args=[reserva.id]), {"fecha": fecha, "hora": 15})
+        self.assertEqual(len(mail.outbox), 1)
+        cuerpo = mail.outbox[0].body
+        self.assertIn("Reserva modificada", mail.outbox[0].subject)
+        self.assertIn("Antes:", cuerpo)
+        self.assertIn("10:00–11:00", cuerpo)
+        self.assertIn("15:00–16:00", cuerpo)
+
+    def test_modificacion_rechazada_no_envia_correo(self):
+        reserva = self._reserva()
+        self.client.post(reverse("modificar_reserva", args=[reserva.id]), {"fecha": "no-es-fecha", "hora": "x"})
+        self.assertEqual(mail.outbox, [])
+
+    def test_cancelar_envia_correo(self):
+        reserva = self._reserva()
+        self.client.post(reverse("cancelar_reserva", args=[reserva.id]))
+        self.assertFalse(Booking.objects.exists())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Reserva cancelada", mail.outbox[0].subject)
+        self.assertIn("10:00–11:00", mail.outbox[0].body)
+
+    def test_recordatorio_solo_para_las_proximas_24_horas_y_sin_duplicar(self):
+        ahora = dj_timezone.now()
+        pronto = self._reserva(inicio=ahora + timedelta(hours=5))
+        self._reserva(inicio=ahora + timedelta(hours=30))  # fuera de la ventana
+        self._reserva(inicio=ahora - timedelta(hours=1))  # ya empezó
+        beto = User.objects.create_user("beto")  # sin correo
+        self._reserva(user=beto, inicio=ahora + timedelta(hours=6))
+
+        self.assertIn("Recordatorios enviados: 1", self._recordatorios())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Recordatorio", mail.outbox[0].subject)
+        pronto.refresh_from_db()
+        self.assertIsNotNone(pronto.recordatorio_enviado_en)
+
+        self.assertIn("Recordatorios enviados: 0", self._recordatorios())
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_recordatorio_fallido_se_reintenta(self):
+        reserva = self._reserva(inicio=dj_timezone.now() + timedelta(hours=5))
+        with mock.patch("reservas.notificaciones.send_mail", side_effect=OSError("SMTP caído")), \
+                self.assertLogs("reservas.notificaciones", level="ERROR"):
+            self.assertIn("Recordatorios enviados: 0", self._recordatorios())
+        reserva.refresh_from_db()
+        self.assertIsNone(reserva.recordatorio_enviado_en)
+        self.assertIn("Recordatorios enviados: 1", self._recordatorios())
+
+    def test_modificar_reinicia_el_recordatorio(self):
+        reserva = self._reserva(inicio=self._local(1, 15))
+        reserva.recordatorio_enviado_en = dj_timezone.now()
+        reserva.save()
+        fecha = (dj_timezone.localdate() + timedelta(days=2)).isoformat()
+        self.client.post(reverse("modificar_reserva", args=[reserva.id]), {"fecha": fecha, "hora": 16})
+        reserva.refresh_from_db()
+        self.assertIsNone(reserva.recordatorio_enviado_en)
+
+
+class ConfiguracionCorreoTests(TestCase):
+    """HU5: correos por consola en desarrollo y SMTP por variables de entorno."""
+
+    CODIGO = (
+        "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gestor_reservas.settings');"
+        "from django.conf import settings; print(settings.EMAIL_BACKEND, settings.EMAIL_HOST)"
+    )
+
+    def _backend(self, **variables):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("DJANGO_")}
+        env.update({"DJANGO_SECRET_KEY": "clave-de-prueba", **variables})
+        resultado = subprocess.run(
+            [sys.executable, "-c", self.CODIGO], cwd=settings.BASE_DIR, env=env, capture_output=True, text=True,
+        )
+        return resultado.stdout.split()
+
+    def test_desarrollo_usa_la_consola(self):
+        self.assertEqual(self._backend(DJANGO_DEBUG="True")[0], "django.core.mail.backends.console.EmailBackend")
+
+    def test_produccion_usa_smtp_configurable(self):
+        backend, host = self._backend(DJANGO_EMAIL_HOST="smtp.example.com")
+        self.assertEqual(backend, "django.core.mail.backends.smtp.EmailBackend")
+        self.assertEqual(host, "smtp.example.com")

@@ -36,6 +36,8 @@ class Booking(models.Model):
     payment_method = models.ForeignKey(
         'PaymentMethod', on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings'
     )
+    # HU5: cuándo se envió el recordatorio (None = pendiente). Se reinicia al cambiar el horario.
+    recordatorio_enviado_en = models.DateTimeField(null=True, blank=True, editable=False)
 
     def __str__(self):
         return f"Reserva de {self.resource.name} por {self.user.username}"

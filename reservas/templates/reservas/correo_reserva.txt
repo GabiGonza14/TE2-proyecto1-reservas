@@ -1,0 +1,12 @@
+{% autoescape off %}Hola, {{ usuario }}:
+
+{% if tipo == 'creada' %}Tu reserva de {{ recurso }} está confirmada:{% elif tipo == 'modificada' %}Tu reserva de {{ recurso }} cambió de horario.
+
+Antes: {{ anterior }}
+Ahora:{% elif tipo == 'cancelada' %}Cancelaste tu reserva de {{ recurso }}. La franja vuelve a estar disponible:{% else %}Te recordamos que tienes una reserva de {{ recurso }} en las próximas 24 horas:{% endif %}{% for franja in franjas %}
+- {{ franja }}{% endfor %}
+
+{% if tipo != 'cancelada' %}Puedes cancelarla o cambiarla en "Mis reservas" hasta {{ antelacion_horas }} h antes de que empiece.
+{% endif %}
+Gestor de Reservas
+{% endautoescape %}
