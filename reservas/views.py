@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, time
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
 from django.utils.dateformat import format as date_format
 from django.utils.dateparse import parse_datetime
 from django.contrib.auth import authenticate, login, logout
@@ -248,6 +249,7 @@ def metodos_pago(request):
     })
 
 
+@require_GET
 @staff_member_required
 def prevision_demanda(request):
     """Dashboard de histórico y previsión de demanda, solo para staff."""
