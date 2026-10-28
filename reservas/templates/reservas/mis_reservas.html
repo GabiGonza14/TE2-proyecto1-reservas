@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestor de Reservas - Mis reservas</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"
+          integrity="sha384-HtMZLkYo+pR5/u7zCzXxMJP6QoNnQJt1qkHM0EaOPvGDIzaVZbmYr/TlvUZ/sKAg" crossorigin="anonymous">
+</head>
+<body class="bg-gray-100">
+
+    <!-- NAVBAR -->
+    <nav class="bg-blue-600 text-white p-4 flex justify-between">
+        <a href="{% url 'home' %}" class="text-xl font-bold">Gestor de Reservas</a>
+        <div>
+            <span class="mr-4">Hola, {{ user.username }}</span>
+            <a href="{% url 'metodos_pago' %}" class="mr-4 hover:underline">Mis métodos de pago</a>
+            <a href="{% url 'logout' %}" class="bg-red-500 px-3 py-1 rounded hover:bg-red-600">Cerrar Sesión</a>
+        </div>
+    </nav>
+
+    <!-- CONTENIDO -->
+    <div class="max-w-3xl mx-auto mt-8 px-4">
+        <h2 class="text-2xl font-bold mb-2">Mis reservas</h2>
+        <p class="text-gray-600 mb-6">
+            Puedes cancelar o cambiar la fecha y hora de una reserva hasta {{ antelacion_horas }} h antes de que empiece.
+            Al cambiarla se mantiene la duración y se comprueba que la nueva franja esté libre.
+        </p>
+
+        {% for message in messages %}
+            <div class="{% if message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %} p-3 rounded mb-4">{{ message }}</div>
+        {% endfor %}
+
+        {% for item in reservas %}
+        {% with r=item.reserva %}
+        <div class="bg-white rounded-lg shadow p-4 mb-4" id="reserva-{{ r.id }}">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="font-semibold">{{ r.resource.name }}</p>
+                    <p class="text-gray-700">{{ r.start_time|date:"l j \d\e F \d\e Y" }}, {{ r.start_time|time:"H:i" }}–{{ r.end_time|time:"H:i" }}</p>
+                    {% if r.payment_method %}<p class="text-gray-500 text-sm">Pagada con {{ r.payment_method }}</p>{% endif %}
+                </div>
+                {% if item.gestionable %}
+                <form method="post" action="{% url 'cancelar_reserva' r.id %}" onsubmit="return confirm('¿Cancelar esta reserva?');">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Cancelar</button>
+                </form>
+                {% endif %}
+            </div>
+            {% if item.gestionable %}
+            <form method="post" action="{% url 'modificar_reserva' r.id %}" class="mt-3 flex flex-wrap items-end gap-2">
+                {% csrf_token %}
+                <label class="text-sm text-gray-600">Nueva fecha
+                    <input type="date" name="fecha" value="{{ r.start_time|date:'Y-m-d' }}" required class="block border rounded px-2 py-1">
+                </label>
+                <label class="text-sm text-gray-600">Hora de inicio
+                    <select name="hora" class="block border rounded px-2 py-1">
+                        {% for h in horas %}
+                        <option value="{{ h }}" {% if h == item.hora_inicio %}selected{% endif %}>{{ h|stringformat:"02d" }}:00</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Cambiar</button>
+            </form>
+            {% else %}
+            <p class="mt-3 text-sm text-gray-500">Ya no se puede cancelar ni modificar: empieza en menos de {{ antelacion_horas }} h o ya empezó.</p>
+            {% endif %}
+        </div>
+        {% endwith %}
+        {% empty %}
+        <p class="text-gray-500">No tienes reservas próximas.</p>
+        {% endfor %}
+
+        <a href="{% url 'home' %}" class="inline-block mt-6 text-blue-600 hover:underline">← Volver a las pistas</a>
+    </div>
+
+</body>
+</html>

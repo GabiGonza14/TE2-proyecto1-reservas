@@ -139,3 +139,6 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
+
+# HU4: horas mínimas antes del inicio para cancelar o modificar una reserva.
+RESERVA_ANTELACION_MINIMA_HORAS = int(os.environ.get("DJANGO_RESERVA_ANTELACION_HORAS", "2"))

@@ -1,9 +1,11 @@
 import json
 from datetime import datetime, timedelta, time
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
+from django.core.exceptions import ValidationError
+from django.http import HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 from django.utils.dateformat import format as date_format
 from django.utils.dateparse import parse_date, parse_datetime
@@ -14,7 +16,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from .models import Resource, Booking, Availability, PaymentMethod
-from .disponibilidad import calcular_dias_disponibilidad, obtener_eventos_disponibilidad
+from .disponibilidad import HORA_FIN, HORA_INICIO, calcular_dias_disponibilidad, obtener_eventos_disponibilidad
+from .gestion import ReservaNoGestionable, cancelar_reserva, modificar_reserva, puede_gestionarse
 from .pagos import PagoInvalido, metodo_vigente, validar_tarjeta
 from .prevision import construir_datos_prevision
 
@@ -293,6 +296,76 @@ def metodos_pago(request):
     return render(request, 'reservas/metodos_pago.html', {
         'metodos': request.user.payment_methods.all(),
     })
+
+
+@login_required
+@require_GET
+def mis_reservas(request):
+    """HU4: próximas reservas del usuario, con opciones para cancelar o modificar."""
+    ahora = timezone.now()
+    reservas = (
+        Booking.objects.filter(user=request.user, end_time__gt=ahora)
+        .select_related('resource')
+        .order_by('start_time')
+    )
+    return render(request, 'reservas/mis_reservas.html', {
+        'reservas': [
+            {
+                'reserva': reserva,
+                'gestionable': puede_gestionarse(reserva, ahora),
+                'hora_inicio': timezone.localtime(reserva.start_time).hour,
+            }
+            for reserva in reservas
+        ],
+        'horas': range(HORA_INICIO, HORA_FIN),
+        'antelacion_horas': settings.RESERVA_ANTELACION_MINIMA_HORAS,
+    })
+
+
+def _reserva_propia(request, booking_id):
+    """Devuelve la reserva si es del usuario; si es de otro, None (la vista responde 403)."""
+    reserva = get_object_or_404(Booking, id=booking_id)
+    return reserva if reserva.user_id == request.user.id else None
+
+
+@login_required
+@require_POST
+def cancelar_reserva_view(request, booking_id):
+    reserva = _reserva_propia(request, booking_id)
+    if reserva is None:
+        return HttpResponseForbidden('No puedes cancelar una reserva de otro usuario.')
+    try:
+        cancelar_reserva(reserva)
+    except ReservaNoGestionable as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, 'Reserva cancelada. La franja vuelve a estar disponible.')
+    return redirect('mis_reservas')
+
+
+@login_required
+@require_POST
+def modificar_reserva_view(request, booking_id):
+    reserva = _reserva_propia(request, booking_id)
+    if reserva is None:
+        return HttpResponseForbidden('No puedes modificar una reserva de otro usuario.')
+    try:
+        fecha = parse_date(request.POST.get('fecha') or '')
+        hora = int(request.POST.get('hora', ''))
+    except ValueError:  # texto no numérico o fecha con formato correcto pero imposible (2026-13-45)
+        fecha = hora = None
+    if fecha is None or hora not in range(24):
+        messages.error(request, 'Indica una fecha y una hora válidas.')
+        return redirect('mis_reservas')
+    try:
+        modificar_reserva(reserva, fecha, hora)
+    except ReservaNoGestionable as e:
+        messages.error(request, str(e))
+    except ValidationError as e:
+        messages.error(request, ' '.join(e.messages))
+    else:
+        messages.success(request, 'Reserva modificada.')
+    return redirect('mis_reservas')
 
 
 @require_GET
