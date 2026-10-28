@@ -5,7 +5,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 
 **Equipo:** Gabriel (GabiGonza14), Derlin, Isalleth
 
-**Roles por historia**
+**Roles por historia** (actualizados el 2026-10-28: Derlin sigue en el equipo pero no puede hacer tareas; ver Decisiones humanas)
 
 | Issue | Developer | Reviewer | QA |
 |---|---|---|---|
@@ -13,8 +13,8 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | #2 HU1 Pago con datos guardados | Gabriel | Derlin | Isalleth |
 | #3 HU2 Calendario disponible/ocupado | Isalleth | Gabriel | Gabriel |
 | #4 HU3 Previsión de demanda | Isalleth | Gabriel | Derlin |
-| #5 HU4 Cancelar o modificar reserva | Isalleth | Derlin | Gabriel |
-| #6 HU5 Correo de confirmación | Derlin | Gabriel | Isalleth |
+| #5 HU4 Cancelar o modificar reserva | Gabriel | Isalleth | Isalleth |
+| #6 HU5 Correo de confirmación | Gabriel | Isalleth | Isalleth |
 
 ## Registro
 
@@ -46,6 +46,9 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #4 | Debug | OpenCode (DeepSeek V4.1 Flash) | Atender la revisión de Gabriel del PR #9: modo oscuro y sugerencias no bloqueantes | Dashboard con variables de color del admin, total semanal calculado antes de redondear, texto sobre el inicio de la previsión y nota de recursos demo en el README; 48/48 pruebas OK | Aceptado: pendiente de nueva revisión | Isalleth |
 | 2026-10-28 | #4 | Revisión | Claude | Revisar el PR #9: código, pruebas y dashboard en el navegador | 47/47 pruebas OK, comando y control de acceso correctos; 3 sugerencias no bloqueantes; primero recomendó Approve | Rechazado en parte: se piden cambios por el modo oscuro (ver abajo) | Gabriel |
 | 2026-10-28 | #4 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #9 en un clon limpio | 48/48 pruebas OK; 8/8 pruebas manuales OK (sin datos, histórico de 244 reservas, idempotencia, previsión, permisos, enlaces, modo claro/oscuro y fechas/horas); 2 observaciones de redondeo no bloqueantes | Aceptado: QA OK | Derlin |
+| 2026-10-28 | #5 | Diseño | Claude | Diseñar HU4: cancelar o modificar mi reserva | Página "Mis reservas"; reglas en `reservas/gestion.py`; antelación mínima configurable (2 h por defecto); al modificar se mantiene la duración y se reutilizan las validaciones de solapamiento y bloqueos | Aceptado: se implementa en el PR | Gabriel |
+| 2026-10-28 | #5 | Código | Claude | Implementar HU4: lista de mis reservas, cancelar y cambiar fecha/hora | Vistas solo por POST y solo del dueño (403 si no), mensajes de error claros, enlaces "Mis reservas" en la barra | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-28 | #5 | Testing | Claude | Pruebas automatizadas de HU4 y prueba del flujo en navegador | 14 pruebas nuevas (71 en total); flujo probado con Playwright: conflicto rechazado, cambio a franja libre y cancelación | Pendiente de revisión (PR) | Gabriel |
 
 ## Respuestas incorrectas de la IA
 
@@ -64,6 +67,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #3 | OpenCode (DeepSeek V4.1 Flash) | El AI log y la descripción del PR asignaban HU2 a Derlin como developer y a Isalleth como reviewer, cuando los roles nuevos son Isalleth (developer) y Gabriel (review y QA) | Revisión de Gabriel en el PR #10 | Se actualizaron la tabla de roles, las filas de #3 y la descripción del PR |
 | 2026-10-28 | #4 | OpenCode (DeepSeek V4.1 Flash) | La primera versión del comando de histórico superaba la complejidad cognitiva (26 > 15) y usaba `random` sin justificar, lo que hizo fallar el Quality Gate de SonarCloud | SonarCloud en el PR #9 | Se dividió el comando en funciones auxiliares, se justificó `random` con `# NOSONAR` para datos de prueba y se añadió `@require_GET` a la vista |
 | 2026-10-28 | #4 | Claude | La revisión del PR #9 recomendó aprobar sin detectar que el dashboard no se lee en modo oscuro: los paneles tienen fondo blanco fijo y el texto hereda el color claro del admin | Gabriel al probar el dashboard en su navegador con modo oscuro | Revisión cambiada a Request changes: usar las variables de color del admin en lugar de colores fijos |
+| 2026-10-28 | #5 | Claude | Al modificar una reserva a la misma franja que otra, mostraba dos errores: el propio y el genérico de `unique_together` ("Booking con este Resource, Start time y End time ya existe.") | Prueba del flujo en el navegador | `full_clean(validate_unique=False)`, porque `clean()` ya rechaza la franja idéntica; prueba que exige un único mensaje |
 
 ## Cambios de la IA rechazados
 
@@ -85,3 +89,6 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-18 | HU4 pasa a Isalleth como Developer (Derlin Reviewer, Gabriel QA) | Equilibrar: cada integrante es Dev de 2 historias |
 | 2026-10-28 | HU3: previsión con la media de cada día de la semana usando 8 semanas completas; histórico contado por fecha de uso | Método simple y explicable; la fecha de uso representa la demanda real del recurso y evita mezclar la fecha de creación de la reserva |
 | 2026-10-28 | HU2 (#3): disponibilidad por franjas de 09:00–21:00, validación de bloqueos en el servidor y refresco del calendario por rango sin recargar | Criterios de aceptación del issue y hallazgo de QA del PR #7 sobre la lista local desactualizada |
+| 2026-10-28 | Derlin sigue en el equipo pero no puede hacer tareas (se le dañó la computadora). Nuevos roles: HU2 Dev Isalleth (Review y QA Gabriel); HU4 y HU5 Dev Gabriel (Review y QA Isalleth); QA de HU3 pasa a Gabriel | Con dos personas, quien no desarrolla hace revisión y QA, y nadie aprueba su propio PR |
+| 2026-10-28 | HU4: se puede cancelar o modificar hasta 2 h antes del inicio (configurable con `DJANGO_RESERVA_ANTELACION_HORAS`) | Dar tiempo a otro usuario para usar la franja liberada; el valor se puede ajustar sin tocar código |
+| 2026-10-28 | HU4: al modificar se cambian fecha y hora de inicio, se mantiene la duración y no se cambia el recurso ni el pago | Cambio acotado y sin nuevo cobro; cambiar duración o recurso equivale a una reserva nueva |

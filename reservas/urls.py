@@ -11,6 +11,9 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('pagos/', views.metodos_pago, name='metodos_pago'),
+    path('mis-reservas/', views.mis_reservas, name='mis_reservas'),
+    path('mis-reservas/<int:booking_id>/cancelar/', views.cancelar_reserva_view, name='cancelar_reserva'),
+    path('mis-reservas/<int:booking_id>/modificar/', views.modificar_reserva_view, name='modificar_reserva'),
     path('prevision-demanda/', views.prevision_demanda, name='prevision_demanda'),
 
 

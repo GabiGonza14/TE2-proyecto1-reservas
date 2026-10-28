@@ -696,3 +696,173 @@ class GenerarHistoricoDemandaTests(TestCase):
             call_command(
                 "generar_historico_demanda", "--semanas", "0", stdout=StringIO()
             )
+
+
+class GestionReservasTests(TestCase):
+    """HU4: cancelar o modificar mi reserva."""
+
+    def setUp(self):
+        self.ana = User.objects.create_user("ana", password="clave-segura-123")
+        self.beto = User.objects.create_user("beto", password="clave-segura-123")
+        self.resource = Resource.objects.create(name="Pista 1")
+        self.client.force_login(self.ana)
+
+    def _local(self, days, hour):
+        fecha = dj_timezone.localdate() + timedelta(days=days)
+        return dj_timezone.make_aware(datetime.combine(fecha, time(hour)))
+
+    def _reserva(self, user=None, days=3, hour=10, horas=1):
+        inicio = self._local(days, hour)
+        return Booking.objects.create(
+            user=user or self.ana, resource=self.resource,
+            start_time=inicio, end_time=inicio + timedelta(hours=horas),
+        )
+
+    def _modificar(self, reserva, days, hour):
+        fecha = dj_timezone.localdate() + timedelta(days=days)
+        return self.client.post(
+            reverse("modificar_reserva", args=[reserva.id]),
+            {"fecha": fecha.isoformat(), "hora": hour},
+        )
+
+    def test_lista_solo_mis_reservas_proximas(self):
+        mia = self._reserva()
+        self._reserva(user=self.beto, hour=12)
+        pasada = Booking.objects.create(
+            user=self.ana, resource=self.resource,
+            start_time=self._local(-2, 10), end_time=self._local(-2, 11),
+        )
+        resp = self.client.get(reverse("mis_reservas"))
+        ids = [item["reserva"].id for item in resp.context["reservas"]]
+        self.assertEqual(ids, [mia.id])
+        self.assertNotIn(pasada.id, ids)
+
+    def test_requiere_iniciar_sesion(self):
+        self.client.logout()
+        resp = self.client.get(reverse("mis_reservas"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("login"), resp.url)
+
+    def test_cancelar_mi_reserva_libera_la_franja(self):
+        reserva = self._reserva()
+        dia = self._local(3, 0)
+        url_disp = reverse("api_disponibilidad", args=[self.resource.id])
+        rango = {"start": dia.isoformat(), "end": (dia + timedelta(days=1)).isoformat()}
+        self.assertEqual(self.client.get(url_disp, rango).json()["dias"][0]["estado"], "parcial")
+
+        resp = self.client.post(reverse("cancelar_reserva", args=[reserva.id]))
+
+        self.assertRedirects(resp, reverse("mis_reservas"))
+        self.assertFalse(Booking.objects.filter(id=reserva.id).exists())
+        self.assertEqual(self.client.get(url_disp, rango).json()["dias"][0]["estado"], "disponible")
+
+    def test_no_puedo_cancelar_ni_modificar_reserva_ajena(self):
+        ajena = self._reserva(user=self.beto)
+        resp = self.client.post(reverse("cancelar_reserva", args=[ajena.id]))
+        self.assertEqual(resp.status_code, 403)
+        resp = self._modificar(ajena, days=4, hour=15)
+        self.assertEqual(resp.status_code, 403)
+        ajena.refresh_from_db()
+        self.assertEqual(ajena.start_time, self._local(3, 10))
+
+    def test_cancelar_requiere_post(self):
+        reserva = self._reserva()
+        resp = self.client.get(reverse("cancelar_reserva", args=[reserva.id]))
+        self.assertEqual(resp.status_code, 405)
+        self.assertTrue(Booking.objects.filter(id=reserva.id).exists())
+
+    def test_modificar_mantiene_la_duracion(self):
+        reserva = self._reserva(horas=2)
+        self._modificar(reserva, days=5, hour=15)
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.start_time, self._local(5, 15))
+        self.assertEqual(reserva.end_time, self._local(5, 17))
+
+    def test_modificar_a_franja_ocupada_o_bloqueada_se_rechaza(self):
+        reserva = self._reserva()
+        self._reserva(user=self.beto, days=4, hour=15)
+        Availability.objects.create(
+            resource=self.resource, start_time=self._local(4, 18), end_time=self._local(4, 20),
+        )
+        for hora in (15, 19):
+            with self.subTest(hora=hora):
+                self._modificar(reserva, days=4, hour=hora)
+                reserva.refresh_from_db()
+                self.assertEqual(reserva.start_time, self._local(3, 10))
+
+        # La franja idéntica a otra reserva muestra un único mensaje claro.
+        respuesta = self.client.post(
+            reverse("modificar_reserva", args=[reserva.id]),
+            {"fecha": (dj_timezone.localdate() + timedelta(days=4)).isoformat(), "hora": 15},
+            follow=True,
+        )
+        mensajes = [str(m) for m in respuesta.context["messages"]]
+        self.assertEqual(mensajes[-1], "Ya existe una reserva en esta franja horaria.")
+        self.assertFalse(any("ya existe." in m and "Booking" in m for m in mensajes))
+
+    def test_modificar_a_la_misma_franja_o_solapando_la_propia_se_permite(self):
+        reserva = self._reserva(horas=2)
+        self._modificar(reserva, days=3, hour=11)
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.start_time, self._local(3, 11))
+
+    def test_modificar_fuera_del_horario_se_rechaza(self):
+        reserva = self._reserva(horas=2)
+        self._modificar(reserva, days=4, hour=20)  # terminaría a las 22:00
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.start_time, self._local(3, 10))
+
+    def test_no_se_gestiona_con_menos_de_la_antelacion_minima(self):
+        ahora = dj_timezone.now()
+        reserva = Booking.objects.create(
+            user=self.ana, resource=self.resource,
+            start_time=ahora + timedelta(hours=1), end_time=ahora + timedelta(hours=2),
+        )
+        with self.settings(RESERVA_ANTELACION_MINIMA_HORAS=2):
+            self.client.post(reverse("cancelar_reserva", args=[reserva.id]))
+            self.assertTrue(Booking.objects.filter(id=reserva.id).exists())
+            self._modificar(reserva, days=5, hour=10)
+            reserva.refresh_from_db()
+            self.assertEqual(reserva.start_time, ahora + timedelta(hours=1))
+            resp = self.client.get(reverse("mis_reservas"))
+            self.assertFalse(resp.context["reservas"][0]["gestionable"])
+
+    def test_antelacion_es_configurable(self):
+        ahora = dj_timezone.now()
+        reserva = Booking.objects.create(
+            user=self.ana, resource=self.resource,
+            start_time=ahora + timedelta(hours=1), end_time=ahora + timedelta(hours=2),
+        )
+        with self.settings(RESERVA_ANTELACION_MINIMA_HORAS=0):
+            self.client.post(reverse("cancelar_reserva", args=[reserva.id]))
+        self.assertFalse(Booking.objects.filter(id=reserva.id).exists())
+
+    def test_no_se_puede_cancelar_una_reserva_que_ya_empezo(self):
+        ahora = dj_timezone.now()
+        reserva = Booking.objects.create(
+            user=self.ana, resource=self.resource,
+            start_time=ahora - timedelta(minutes=30), end_time=ahora + timedelta(minutes=30),
+        )
+        with self.settings(RESERVA_ANTELACION_MINIMA_HORAS=0):
+            self.client.post(reverse("cancelar_reserva", args=[reserva.id]))
+        self.assertTrue(Booking.objects.filter(id=reserva.id).exists())
+
+    def test_nueva_franja_tambien_respeta_la_antelacion(self):
+        reserva = self._reserva()
+        hoy = dj_timezone.localtime()
+        with self.settings(RESERVA_ANTELACION_MINIMA_HORAS=48):
+            self.client.post(
+                reverse("modificar_reserva", args=[reserva.id]),
+                {"fecha": (hoy + timedelta(days=1)).date().isoformat(), "hora": 10},
+            )
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.start_time, self._local(3, 10))
+
+    def test_datos_invalidos_no_rompen(self):
+        reserva = self._reserva()
+        resp = self.client.post(
+            reverse("modificar_reserva", args=[reserva.id]), {"fecha": "no-es-fecha", "hora": "x"},
+        )
+        self.assertRedirects(resp, reverse("mis_reservas"))
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.start_time, self._local(3, 10))

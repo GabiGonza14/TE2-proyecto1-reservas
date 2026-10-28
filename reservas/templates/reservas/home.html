@@ -16,6 +16,7 @@
                 {% if user.is_staff %}
                     <a href="{% url 'prevision_demanda' %}" class="mr-4 hover:underline">Previsión de demanda</a>
                 {% endif %}
+                <a href="{% url 'mis_reservas' %}" class="mr-4 hover:underline">Mis reservas</a>
                 <a href="{% url 'metodos_pago' %}" class="mr-4 hover:underline">Mis métodos de pago</a>
                 <a href="{% url 'logout' %}" class="bg-red-500 px-3 py-1 rounded hover:bg-red-600">Cerrar Sesión</a>
             {% else %}
