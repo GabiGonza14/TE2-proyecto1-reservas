@@ -49,6 +49,8 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-28 | #5 | Diseño | Claude | Diseñar HU4: cancelar o modificar mi reserva | Página "Mis reservas"; reglas en `reservas/gestion.py`; antelación mínima configurable (2 h por defecto); al modificar se mantiene la duración y se reutilizan las validaciones de solapamiento y bloqueos | Aceptado: se implementa en el PR | Gabriel |
 | 2026-10-28 | #5 | Código | Claude | Implementar HU4: lista de mis reservas, cancelar y cambiar fecha/hora | Vistas solo por POST y solo del dueño (403 si no), mensajes de error claros, enlaces "Mis reservas" en la barra | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-28 | #5 | Testing | Claude | Pruebas automatizadas de HU4 y prueba del flujo en navegador | 15 pruebas nuevas (72 en total); flujo probado con Playwright: conflicto rechazado, cambio a franja libre y cancelación | Pendiente de revisión (PR) | Gabriel |
+| 2026-10-28 | #5 | Revisión | OpenCode (DeepSeek V4.1 Flash) | Revisar código del PR #11 (Files changed) y validar arquitectura/seguridad | Código limpio, transaccional, `@require_POST` en mutaciones, `@require_GET` en listado, validación de franjas y propiedad del recurso correcta | Aceptado: Approve | Isalleth |
+| 2026-10-28 | #5 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #11: suite completa y pruebas funcionales | 72/72 pruebas OK; aislamiento de reservas verificado, cambio a franja libre OK, rechazo por solapamiento OK, rechazo tras 21:00 OK, cancelación y liberación de franja OK, bloqueo de gestión con <2h de antelación OK | Aceptado: QA OK | Isalleth |
 
 ## Respuestas incorrectas de la IA
 
