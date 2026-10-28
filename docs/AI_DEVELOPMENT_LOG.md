@@ -33,6 +33,7 @@ Cada integrante agrega sus filas al trabajar en su rol.
 | 2026-10-27 | #2 | Código | Claude | Implementar HU1: API, modal de pago en el calendario y página "Mis métodos de pago" | Pago obligatorio al reservar; creación atómica (si una semana choca no se crea ninguna ni se guarda la tarjeta) | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-27 | #2 | Testing | Claude | Pruebas automatizadas de HU1 y prueba del flujo en navegador | 19 pruebas nuevas (37 en total); flujo probado con Playwright: tarjeta nueva → guardada → reserva en un clic | Pendiente de revisión (PR) | Gabriel |
 | 2026-10-28 | #2 | Debug | Claude | Corregir lo pedido por Derlin en la revisión del PR #8 | `repeat_weeks` validado como entero ≥ 0 (400 si no); prueba nueva (falla con el código anterior) y prueba de recurrencia con conflicto ampliada con `save: true` | Pendiente de nueva revisión | Gabriel |
+| 2026-10-28 | #2 | Testing (QA) | OpenCode (DeepSeek V4.1 Flash) | Ejecutar el checklist de QA del PR #8 en un clon limpio | 38/38 pruebas OK; 9/9 pruebas manuales OK (pago simulado, tarjeta guardada, tarjetas inválidas, recurrencia con conflicto, aislamiento entre usuarios y admin) | Aceptado: QA OK | Isalleth |
 
 ## Respuestas incorrectas de la IA
 
